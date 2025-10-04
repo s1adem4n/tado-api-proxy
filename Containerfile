@@ -1,11 +1,15 @@
 FROM docker.io/golang:1.25-alpine AS build
 
 WORKDIR /app
+RUN go env -w GOMODCACHE=/root/.cache/go-build
+
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o /tado-api-proxy ./cmd/main.go
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  CGO_ENABLED=0 go build -o /tado-api-proxy ./cmd/main.go
 
 FROM docker.io/alpine:latest
 
