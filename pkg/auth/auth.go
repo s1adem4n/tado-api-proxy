@@ -20,6 +20,7 @@ type Handler struct {
 
 func NewHandler(browserAuth *BrowserAuth, tokenPath string) *Handler {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Handler{
 		browserAuth: browserAuth,
 		tokenPath:   tokenPath,
@@ -52,7 +53,12 @@ func (h *Handler) Init(ctx context.Context) error {
 		}
 	}
 
-	go h.autoRefresh()
+	go h.autoRefresh(h.ctx)
+	return nil
+}
+
+func (h *Handler) Close() error {
+	h.cancel()
 	return nil
 }
 
@@ -67,52 +73,50 @@ func (h *Handler) GetAccessToken() (string, error) {
 	return h.token.AccessToken, nil
 }
 
-func (h *Handler) autoRefresh() {
-	for {
-		h.lock.RLock()
-		if h.token.AccessToken == "" {
-			h.lock.RUnlock()
-			time.Sleep(30 * time.Second)
-			continue
-		}
-		refreshAt := h.token.Expiry.Add(-5 * time.Minute)
-		h.lock.RUnlock()
+func (h *Handler) refreshToken(ctx context.Context) error {
+	token := h.getToken()
 
-		waitDuration := time.Until(refreshAt)
-		if waitDuration < 0 {
-			waitDuration = 0
-		}
+	waitDuration := max(time.Until(token.Expiry.Add(-1*time.Minute)), 0)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(waitDuration):
+	}
 
-		select {
-		case <-h.ctx.Done():
-			return
-		case <-time.After(waitDuration):
-		}
-
-		h.lock.Lock()
-		err := h.token.Refresh(h.ctx)
+	err := token.Refresh(ctx)
+	if err != nil {
+		log.Printf("OAuth refresh failed, attempting browser auth: %v", err)
+		token, err = h.browserAuth.GetToken(ctx)
 		if err != nil {
-			log.Printf("Auto-refresh failed: %v, attempting browser auth", err)
-			token, err := h.browserAuth.GetToken(h.ctx)
-			if err != nil {
-				log.Printf("Browser auth failed: %v", err)
-				h.lock.Unlock()
-				time.Sleep(30 * time.Second)
-				continue
-			}
-			h.token = token
+			return err
 		}
-		h.token.Save(h.tokenPath)
-		h.lock.Unlock()
+	}
+	h.setToken(token)
+
+	return token.Save(h.tokenPath)
+}
+
+func (h *Handler) autoRefresh(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := h.refreshToken(ctx)
+			if err != nil {
+				log.Printf("Token refresh failed: %v", err)
+			}
+		}
 	}
 }
 
-func (h *Handler) Close() error {
-	h.cancel()
+func (h *Handler) getToken() *Token {
 	h.lock.RLock()
 	defer h.lock.RUnlock()
-	if h.token.AccessToken != "" {
-		return h.token.Save(h.tokenPath)
-	}
-	return nil
+	return h.token
+}
+func (h *Handler) setToken(t *Token) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	h.token = t
 }
