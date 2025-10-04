@@ -7,6 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/s1adem4n/tado-api-proxy/internal/config"
+	"github.com/s1adem4n/tado-api-proxy/internal/proxy"
 	"github.com/s1adem4n/tado-api-proxy/pkg/auth"
 )
 
@@ -20,7 +21,7 @@ func main() {
 		panic(err)
 	}
 
-	handler := auth.NewHandler(
+	authHandler := auth.NewHandler(
 		auth.NewBrowserAuth(
 			config.ChromeExecutable,
 			config.CookiesPath,
@@ -29,13 +30,13 @@ func main() {
 		),
 		config.TokenPath,
 	)
-	err = handler.Init(ctx)
+	err = authHandler.Init(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", handler)
+	mux.Handle("/", proxy.NewHandler(authHandler))
 
 	fmt.Printf("Listening on %s\n", config.ListenAddr)
 	err = http.ListenAndServe(config.ListenAddr, mux)

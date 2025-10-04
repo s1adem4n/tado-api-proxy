@@ -12,6 +12,8 @@ import (
 
 const (
 	TokenURL = "https://login.tado.com/oauth2/token"
+	TestURL  = "https://my.tado.com/api/v2/me"
+	ClientID = "af44f89e-ae86-4ebe-905f-6bf759cf6473"
 )
 
 type Token struct {
@@ -77,7 +79,7 @@ func (t *Token) Test(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		BaseURL+"/me",
+		TestURL,
 		nil,
 	)
 	if err != nil {
