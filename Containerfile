@@ -5,7 +5,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o /tado-api-proxy ./cmd/tado-api-proxy
+RUN CGO_ENABLED=0 go build -o /tado-api-proxy ./cmd/main.go
 
 FROM docker.io/alpine:latest
 
