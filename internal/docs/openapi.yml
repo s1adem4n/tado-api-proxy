@@ -1,0 +1,5225 @@
+openapi: 3.1.0
+info:
+  title: tado API v2
+  description: |
+    Source: https://github.com/kritsel/tado-openapispec-v2
+
+    Community managed API definition for the tado API hosted on https://my.tado.com/api/v2/. 
+    This definition is not officially supported or published by tado&ordm;.
+    
+    Start with `[user] GET /me`. This will give you the id of your home and you can take it further from there.
+    
+    ## tado&ordm; X support
+    
+    This API is primarily meant to support homes equipped with tado&ordm; V3 (and earlier generation) devices.
+    It provides limited support for tado&ordm; X enabled homes.
+    
+    API operation groups (and sometimes individual API operations) are labelled to indicate whether they support tado&ordm; X or not:
+    
+    | group label            | operation label | explanation                               |
+    |------------------------|-----------------|-------------------------------------------| 
+    | **[ &check; tado X]**  | [ + tado X]     |  operation group (or single operation) supports tado&ordm; X |
+    | **[ &cross; tado X]**  | [ NO tado X]    |  operation group (or single operation) does not support tado&ordm; X |     
+    | **[ ~ tado X]**        |                 |  some operations do supports tado&ordm; X, others don't |      
+    
+    Note: when a group is labelled with **[ ~ tado X]**, 
+    individual operations in that group are labelled as [ + tado X] or [ NO tado X]
+    
+    More info: [https://github.com/kritsel/tado-openapispec-v2/wiki/tado-X](https://github.com/kritsel/tado-openapispec-v2/wiki/tado-X)
+    
+    ## Additional resources
+    
+    * Github repo where this API definition is maintained: 
+    [https://github.com/kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2)
+    * Wiki for this GitHub repo with additional information:
+    [https://github.com/kritsel/tado-openapispec-v2/wiki](https://github.com/kritsel/tado-openapispec-v2/wiki/)
+  version: 2.2025.02.03.0
+servers:
+  - url: /api/v2
+
+paths:
+  ####################################################################################################################
+  # user paths
+
+  /me:
+    get:
+      summary: Returns information about the authenticated user, (summary) information of their home(s) and mobile devices.
+      operationId: getMe # hint for client code generators
+      tags:
+        - user
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+
+  /homes/{homeId}/users:
+    get:
+      summary: Get all users associated with the provided homeId.
+      operationId: getUsers # hint for client code generators
+      tags:
+        - user
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  ####################################################################################################################
+  # mobile device paths
+  /homes/{homeId}/mobileDevices:
+    get:
+      summary: Get all mobile devices associated with the provided homeId
+      operationId: getMobileDevices # hint for client code generators
+      tags:
+        - mobile device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MobileDevice'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/mobileDevices/{mobileDeviceId}:
+    get:
+      summary: Get a specific mobile device associated with the provided homeId
+      operationId: getMobileDevice # hint for client code generators
+      tags:
+        - mobile device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: mobileDeviceId
+          schema:
+            $ref: '#/components/schemas/MobileDeviceId'
+          required: true
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDevice'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    delete:
+      summary: Remove the relationship between a mobile device and a home
+      operationId: deleteMobileDeviceFromHome # hint for client code generators
+      tags:
+        - mobile device
+      parameters:
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+            pattern: "application/json"
+            example: "application/json"
+          required: true
+          description: >
+            Strangely enough a 'Content-Type' header with value 'application/json' 
+            is mandatory for this specific endpoint.
+            No other endpoint requires it.
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: mobileDeviceId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: ID of a mobile device
+      responses:
+        '200':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/mobileDevices/{mobileDeviceId}/settings:
+    get:
+      summary: Get the settings for a specific mobile device which is associated with the given home
+      operationId: getMobileDeviceSettings # hint for client code generators
+      tags:
+        - mobile device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: mobileDeviceId
+          schema:
+            $ref: '#/components/schemas/MobileDeviceId'
+          required: true
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDeviceSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    put:
+      summary: Update the settings for a specific mobile device which is associated with the given home
+      operationId: setMobileDeviceSettings # hint for client code generators
+      tags:
+        - mobile device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: mobileDeviceId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: ID of a mobile device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileDeviceSettings'
+            examples:
+              enable-geotracking:
+                value:
+                  geoTrackingEnabled: true
+              disable-geotracking:
+                value:
+                  geoTrackingEnabled: false
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDeviceSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  ####################################################################################################################
+  # home paths
+  /homes/{homeId}:
+    get:
+      summary: Get full details of a single home.
+      description: Use `GET /me` to determine the `homeId` of your home
+      operationId: getHome # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Home'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/airComfort:
+    get:
+      summary: Get humidity and temperature indicators for all zones (rooms) in this home
+      description: "'Climate comfort' element in the app"
+      operationId: getAirComfort # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirComfort'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/awayRadiusInMeters:
+    put:
+      summary: Set the geo-tracking distance.
+      description: >
+        When the distance between home location and the location of a mobile device which can control this home
+        is greater than this distance, tado considers the mobile device to be outside of home.
+      operationId: setAwayRadiusInMeters # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AwayRadiusInput'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/details:
+    put:
+      summary: Set home details for this home.
+      description: >
+        This endpoint expects a complete HomeDetails object, 
+        you cannot send a partial object which only contains the properties you would like to update.
+      operationId: setHomeDetails # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomeDetails'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/heatingCircuits:
+    get:
+      summary: Get information about the heating circuits of this home. [ + tado X]
+      operationId: getHeatingCircuits # hint for client code generators
+      tags:
+        - heating circuit
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HeatingCircuit'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/heatingSystem:
+    get:
+      summary: Get information about the presence of various heating systems in this home
+      operationId: getHeatingSystem # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatingSystem'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/heatingSystem/boiler:
+    put:
+      summary: Inform tado about the presence of a boiler in this home
+      description: >
+        When setting the boiler presence to true with a boiler id, the tado api does not seem to generate any
+        errors when you supply an unknown boiler id. 
+        The resulting response of /homes/{homeId}/heatingSystem will always have boiler.id set to the supplied
+        boiler id value and boiler.found set to true.
+        
+        
+        The app assists the user in finding the boiler by brand and model. 
+        This is supported by tado's graphql API, and not via the API described in this definition.
+      operationId: setBoiler # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Boiler1'
+            examples:
+              not-present:
+                value:
+                  present: false
+              present_no-id:
+                value:
+                  present: true
+              present_with-id:
+                value:
+                  present: true
+                  id: 2699
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/heatingSystem/underfloorHeating:
+    put:
+      summary: Inform tado about the presence of underfloor heating in this home
+      operationId: setUnderfloorHeating # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnderfloorHeating'
+            examples:
+              not-present:
+                value:
+                  present: false
+              present:
+                value:
+                  present: true
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/incidentDetection:
+    get:
+      summary: Get the value of the incidentDetection setting for this home.
+      description: |
+        From [https://support.tado.com/en/articles/4467468-what-is-care-protect](https://support.tado.com/en/articles/4467468-what-is-care-protect):
+              
+        If you have an Auto-Assist subscription, or if Incident Detection is included in your tado° starter kit, 
+        then tado° will constantly monitor your heating system to let you know if something isn’t working properly.
+        It considers various factors, including the indoor temperature of each room, your Smart Schedule and open windows.
+
+        If there are any unexpected changes, you’ll receive a notification and be given the option 
+        to try to identify and resolve the issue or call in a professional to do so for you. 
+        This means you can address boiler problems as they arise, and in some cases even avoid costly repairs. 
+
+        Incident Detection works with all boiler types and interfaces, however it might not detect every incident. 
+        For instance, the tado° app won’t show bus interface errors of digitally connected boilers (e.g. regarding a broken pump).
+      operationId: getIncidentDetection # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentDetection'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    put:
+      summary: Enable or disable incident detection setting for this home.
+      description: >
+        You won't be able to enable incident detection when it is not supported for your home.
+        
+        See the description for GET /homes/{homeId}/incidentDetection for more information.
+      operationId: setIncidentDetection # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentDetectionInput'
+            examples:
+              enable:
+                value:
+                  enabled: true
+              disable:
+                value:
+                  enabled: false
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/flowTemperatureOptimization:
+    get:
+      summary: Get the boiler's water temperature specifics.
+      description: |
+        Only works for homes with boilers which support an OpenTherm interface.
+        Returns 404 otherwise.
+        
+        Also see the `supportsFlowTemperatureOptimization` property in the `GET /homes/{homeId}` response.
+      operationId: getFlowTemperatureOptimization # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlowTemperatureOptimization'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+    put:
+      summary: Set the boiler's water temperature specifics.
+      description: |
+        Only works for homes with boilers which support an OpenTherm interface.
+        
+        Also see the `supportsFlowTemperatureOptimization` property in the `GET /homes/{homeId}` response.
+        
+        This operation might be the equivalent of `PUT /homeByBridge/{bridgeId}/boilerMaxOutputTemperature`
+      operationId: setFlowTemperatureOptimization # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlowTemperatureOptimizationInput'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/weather:
+    get:
+      summary: Get the current weather for the given home.
+      operationId: getWeather # hint for client code generators
+      tags:
+        - home
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Weather'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  ####################################################################################################################
+  # home control paths
+
+  /homes/{homeId}/presenceLock:
+    put:
+      summary: Manually specify whether someone at home or not.
+      description: |
+        This operation sets a home's `homePresence` property. 
+        When this property's value is `AWAY`, the AwayConfiguration of each zone will control
+        the (temperature) settings for that zone.
+        
+        `homePresence` can also be automatically controlled via geo-tracking (requires a paid Auto-Assist subscription).
+        When geo-tracking is enabled, this operation overrides the `homePresence` value determined by
+        geo-tracking.
+      operationId: setPresenceLock # hint for client code generators
+      tags:
+        - home control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresenceLock'
+            examples:
+              HOME:
+                value:
+                  homePresence: HOME
+              AWAY:
+                value:
+                  homePresence: AWAY
+      responses:
+        '204':
+          description: successful empty response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422': # verify
+          $ref: '#/components/responses/InputError422'
+    delete:
+      summary: Remove the manually set home status.
+      description: |
+        Remove the manually set `homePresence` value as set by `PUT /homes/{homeId}/presenceLock`, 
+        handing back control of the `homePresence` value to the geo-tracking capability 
+        enabled on the mobile devices used to control this home.
+        
+        Requires a paid Auto-Assist subscription.
+      operationId: deletePresenceLock # hint for client code generators
+      tags:
+        - home control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '204':
+          description: successful empty response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422': # verify
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/state:
+    get:
+      summary: Get information about the presence state of the home.
+      description: |
+        `homePresence` can be automatically controlled by enabling geo-tracking on the mobile devices used
+        to control the home 
+        (see `PUT /homes/{homeId}/mobileDevices/{mobileDeviceId}/settings`,
+        requires a paid Auto-Assist subscription).
+        Or it can be set via `PUT /homes/{homeId}/presenceLock`
+             
+        When its value is `AWAY`, the AwayConfiguration of each zone will control 
+        the (temperature) settings for that zone.
+      
+      operationId: getHomeState # hint for client code generators
+      tags:
+        - home control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeState'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  ####################################################################################################################
+  # bridge paths
+  /bridges/{bridgeId}:
+    get:
+      summary: Retrieve Internet Bridge details.
+      description: >
+        This operation is used in the https://model-selector.tado.com/ webapp 
+        and the 'tado&ordm; for Installers' mobile app.
+      operationId: getBridge # hint for client code generators
+      tags:
+        - bridge
+      security: [ ] # No security
+      parameters:
+        - in: path
+          name: bridgeId
+          schema:
+            $ref: '#/components/schemas/BridgeId'
+          required: true
+          description: unique ID of your tado Internet Bridge
+        - in: query
+          name: authKey
+          schema:
+            type: string
+            example: 1234
+          required: true
+          description: printed on your tado Internet Bridge
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bridge'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  ####################################################################################################################
+  # boiler paths
+  /homeByBridge/{bridgeId}/boilerInfo:
+    get:
+      summary: Retrieve information about this home's boiler.
+      description: >
+        This operation is used in the https://model-selector.tado.com/ webapp 
+        and the 'tado&ordm; for Installers' mobile app.
+      operationId: getBoilerInfo # hint for client code generators
+      tags:
+        - home by bridge
+      security: [] # No security
+      parameters:
+        - in: path
+          name: bridgeId
+          schema:
+            $ref: '#/components/schemas/BridgeId'
+          required: true
+          description: serialNo of your tado Internet Bridge
+        - in: query
+          name: authKey
+          schema:
+            type: string
+            example: 1234
+          required: true
+          description: printed on your tado Internet Bridge
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Boiler2'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homeByBridge/{bridgeId}/boilerMaxOutputTemperature:
+    get:
+      summary: Retrieve the boiler's maximum output temperature.
+      description: >
+        This operation is used in the https://model-selector.tado.com/ webapp 
+        and the 'tado&ordm; for Installers' mobile app.
+      operationId: getBoilerMaxOutputTemperature # hint for client code generators
+      tags:
+        - home by bridge
+      security: [] # No security
+      parameters:
+        - in: path
+          name: bridgeId
+          schema:
+            $ref: '#/components/schemas/BridgeId'
+          required: true
+          description: serialNo of your tado Internet Bridge
+        - in: query
+          name: authKey
+          schema:
+            type: string
+            example: 1234
+          required: true
+          description: printed on your tado Internet Bridge
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoilerMaxOutputTemperature'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+    put:
+      summary: Set the boiler's maximum output temperature.
+      description: |
+        Whether this information is actually transmitted to your boiler or not
+        depends on the communication capabilities of your boiler and any connector solution
+        used between your boiler and your tado hardware.
+        
+        This operation is used in the https://model-selector.tado.com/ webapp 
+        and the 'tado&ordm; for Installers' mobile app.
+        
+        This operation could be the equivalent of `PUT /homes/{homeId}/flowTemperatureOptimization`.
+      operationId: setBoilerMaxOutputTemperature # hint for client code generators
+      tags:
+        - home by bridge
+      security: [] # No security
+      parameters:
+        - in: path
+          name: bridgeId
+          schema:
+            $ref: '#/components/schemas/BridgeId'
+          required: true
+          description: serialNo of your tado Internet Bridge
+        - in: query
+          name: authKey
+          schema:
+            type: string
+            example: 1234
+          required: true
+          description: printed on your tado Internet Bridge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoilerMaxOutputTemperature'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homeByBridge/{bridgeId}/boilerWiringInstallationState:
+    get:
+      summary: >
+        Retrieves information about the connection between your boiler 
+        and the wired tado device which controls your boiler.
+      description: >
+        This operation is used in the https://model-selector.tado.com/ webapp 
+        and the 'tado&ordm; for Installers' mobile app.
+      operationId: getBoilerWiringInstallationState # hint for client code generators
+      tags:
+        - home by bridge
+      security: [] # No security
+      parameters:
+        - in: path
+          name: bridgeId
+          schema:
+            $ref: '#/components/schemas/BridgeId'
+          required: true
+          description: serialNo of your tado Internet Bridge
+        - in: query
+          name: authKey
+          schema:
+            type: string
+            example: 1234
+          required: true
+          description: printed on your tado Internet Bridge
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoilerWiringInstallationState'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  ####################################################################################################################
+  # zone paths
+  /homes/{homeId}/zones:
+    get:
+      summary: Get all zones (a.k.a. rooms) associated with the provided homeId.
+      description: >
+        Delivers information about each zone in the given home, including the tado devices present in each zone.
+        
+        
+        About the devices: there are multiple ways to list the tado devices in a home or zone:
+
+        * GET /homes/{homeId}/devices 
+
+        * GET /homes/{homeId}/deviceList
+
+        * GET /homes/{homeId}/zones **this operation**
+        
+        * GET /homes/{homeId}/zones/{zoneId}/control
+        
+        
+        Distinguishing features of **this operation**:
+
+        * **DeviceType 'IB01'**: devices of DeviceType 'IB01' (Internet Bridge) are not included in the response
+
+        * **duties**: the response does tell you the duties of each device
+
+        * **zone**: the response tells you the zone each device belongs to
+        
+        
+        Used in app feature: Home page
+      operationId: getZones # hint for client code generators
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Zone'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    post:
+      summary: Create a new zone (a.k.a. room) and move devices to it.
+      operationId: createZone
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: query
+          name: force
+          schema:
+            type: boolean
+          description: >
+            To be investigated further. 
+            'true' seems to indicate that the zone the device belonged to previously should be deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneCreate'
+
+      responses:
+        '201':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/capabilities:
+    get:
+      summary: Get the climate control capabilities of this zone.
+      operationId: getZoneCapabilities # hint for client code generators
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneCapabilities'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/dazzle:
+    put:
+      summary: Enable or disable the dazzle mode of this zone.
+      description: >
+        Dazzle mode is defined as: "Your tado device shows an animation when settings are changed via Manual Control."
+      operationId: setDazzle
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DazzleInput'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/details:
+    put:
+      summary: Change the name of the zone
+      operationId: setDetails
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneDetailsInput'
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zone'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/openWindowDetection:
+    put:
+      summary: Set the open window detection settings for this zone
+      operationId: setOpenWindowDetection
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenWindowDetectionInput'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/state/openWindow/activate:
+    post:
+      summary: To be determined what this operation exactly does.
+      operationId: activateOpenWindowState # hint for client code generators
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/state/openWindow:
+    delete:
+      summary: To be determined what this operation exactly does.
+      operationId: deactivateOpenWindowState # hint for client code generators
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/state:
+    get:
+      summary: Get the current state details of a zone (a.k.a. room).
+      description: >
+        This includes current temperature, humidity and heating power information.
+        
+        Used in app feature: Home page > a room tile
+      operationId: getZoneState # hint for client code generators
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneState'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zoneStates:
+    get:
+      summary: Get zone state details of every zone (a.k.a. room) in the specified home.
+      # double empty lines are intentional
+      description: >
+        This includes current temperature, humidity and heating power information.
+        
+        
+        Used in app feature: Home page
+      operationId: getZoneStates # hint for client code generators
+      tags:
+        - zone
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneStates'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  ####################################################################################################################
+  # zone control paths
+
+  /homes/{homeId}/overlay:
+    post:
+      summary: Configure the zone overlay (manual override of the configured schedule) of multiple rooms (a.k.a. zones) with a single API method
+      description: >
+        Used in app feature: Home page > Turn OFF All Rooms
+      operationId: setZoneOverlays # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneOverlays'
+      responses:
+        '204':
+          description: successful empty response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+    delete:
+      summary: Remove the zone overlay (manual override of the configured schedule) of multiple rooms (a.k.a. zones) with a single API method
+      description: >
+        Used in app feature: Home page > Resume Schedule All Rooms
+      operationId: deleteZoneOverlays # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: query
+          name: rooms
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: list of zone IDs whose overlay should be removed (do not include a HOT_WATER zone ID)
+      responses:
+        '204':
+          description: successful empty response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/zones/{zoneId}/defaultOverlay:
+    get:
+      summary: >
+        Get the ZoneOverlay.termination.typeSkillBasedApp value to use when a user sets (and thus overrides) 
+        the target temperature for a zone via a tado thermostat device.
+      description: Only when the type TIMER is used should durationInSeconds be specified as well.
+      operationId: getDefaultZoneOverlay # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultZoneOverlay'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404' # when the zone does not exist
+    put:
+      summary: >
+        Set the ZoneOverlay.termination.typeSkillBasedApp value to use when a user sets (and thus overrides) 
+        the target temperature for a zone via a tado thermostat device.
+      description: When you use the type TIMER you also need to set durationInSeconds.
+      operationId: setDefaultZoneOverlay # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefaultZoneOverlay'
+            examples:
+              MANUAL:
+                value:
+                  terminationCondition:
+                    type: MANUAL
+              TADO_MODE:
+                value:
+                  terminationCondition:
+                    type: TADO_MODE
+              TIMER:
+                value:
+                  terminationCondition:
+                    type: TIMER
+                    durationInSeconds: 900
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultZoneOverlay'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404' # when the zone does not exist
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/earlyStart:
+    get:
+      summary: Control whether Tado makes sure a set temperature is reached at the start of a block
+      operationId: getEarlyStart # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EarlyStart'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+    put:
+      summary: Control whether Tado makes sure a set temperature is reached at the start of a block
+      operationId: setEarlyStart # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EarlyStart'
+            examples:
+              enable:
+                value:
+                  enabled: true
+              disable:
+                value:
+                  enabled: false
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EarlyStart'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/overlay:
+    get:
+      summary: Get the overlay (manual override of the configured temperature schedule) of the given zone (a.k.a. room)
+      operationId: getZoneOverlay # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneOverlay'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404' # when the zone does not exist or there is no overlay for this zone
+    put:
+      summary: Set the overlay (manual override of the configured temperature schedule) for the given zone (a.k.a. room)
+      operationId: setZoneOverlay # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneOverlay'
+            examples:
+              MANUAL-OFF:
+                value:
+                  setting:
+                    type: HEATING
+                    power: OFF
+                  termination:
+                    typeSkillBasedApp: MANUAL
+              MANUAL-ON:
+                value:
+                  setting:
+                    type: HEATING
+                    power: ON
+                    temperature:
+                      celsius: 19.5
+                  termination:
+                    typeSkillBasedApp: MANUAL
+              TADO_MODE-ON:
+                value:
+                  setting:
+                    type: HEATING
+                    power: ON
+                    temperature:
+                      celsius: 19.5
+                  termination:
+                    typeSkillBasedApp: TADO_MODE
+              NEXT_TIME_BLOCK-ON:
+                value:
+                  setting:
+                    type: HEATING
+                    power: ON
+                    temperature:
+                      celsius: 19.5
+                  termination:
+                    typeSkillBasedApp: NEXT_TIME_BLOCK
+              TIMER-ON:
+                value:
+                  setting:
+                    type: HEATING
+                    power: ON
+                    temperature:
+                      celsius: 19.5
+                  termination:
+                    typeSkillBasedApp: TIMER
+                    durationInSeconds: 3600
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneOverlay'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+    delete:
+      summary: Remove the overlay (manual override of the configured temperature schedule) for the given zone (a.k.a. room)
+      operationId: deleteZoneOverlay # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '204':
+          description: successful empty response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/zones/{zoneId}/schedule/awayConfiguration:
+    get:
+      summary: Get the (temperature) settings to use for the given zone (a.k.a. room) when the home state is AWAY.
+      operationId: getAwayConfiguration # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneAwayConfiguration'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    put:
+      summary: Set the (temperature) settings to use for the given zone (a.k.a. room) when the home state is AWAY.
+      operationId: setAwayConfiguration # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneAwayConfiguration'
+            examples:
+              HEATING-OFF:
+                value:
+                  type: HEATING
+                  preheatingLevel: OFF
+                  setting:
+                    type: HEATING
+                    power: OFF
+              HEATING-ON:
+                value:
+                  type: HEATING
+                  preheatingLevel: OFF
+                  setting:
+                    type: HEATING
+                    power: ON
+                    temperature:
+                      celsius: 12
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/schedule/activeTimetable:
+    get:
+      summary: Get the active timetable type for the given zone (a.k.a. room)
+      operationId: getActiveTimetableType # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableType'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+    put:
+      summary: Set the active timetable type for the given zone (a.k.a. room)
+      operationId: setActiveTimetableType # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimetableType'
+            examples:
+              ONE_DAY:
+                value:
+                  id: 0
+              THREE_DAY:
+                value:
+                  id: 1
+              SEVEN_DAY:
+                value:
+                  id: 2
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableType'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/schedule/timetables:
+    get:
+      summary: Get the available timetable types
+      operationId: getZoneTimetables # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                description: all available timetable types
+                items:
+                  $ref: '#/components/schemas/TimetableType'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/zones/{zoneId}/schedule/timetables/{timetableTypeId}:
+    get:
+      summary: Get the timetable type for the given timetable type ID
+      operationId: getZoneTimetable # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+        - in: path
+          name: timetableTypeId
+          schema:
+            type: integer
+          required: true
+          example: 1
+          description: ID of a timetable type
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableType'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/schedule/timetables/{timetableTypeId}/blocks:
+    get:
+      summary: Get the user defined timetable blocks for the given zoneId and given timetableTypeId.
+      # the double empty lines below are intentional, they control the layout in Swagger UI.
+      description: >
+        For each zone you can define three different timetables, where each timetable is identified by a timetable type: 
+        
+        * ONE_DAY (the same schedule for every day of the week),
+        
+        * THREE_DAY (the same schedule for weekdays, and a separate schedule for saturday and sunday) and
+        
+        * SEVEN_DAY (a different schedule for each day of the week).
+        
+        
+        Only one of these timetables can be active at any one time 
+        (see `/homes/{homeId}/zones/{zoneId}/schedule/activeTimetable`).
+        
+        
+        Each timetable for a timetable type consists of an array of blocks.
+        Each block consists of a day type (e.g. MONDAY_TO_FRIDAY for the THREE_DAY timetable type), a start time and end time 
+        and the setting (e.g. temperature) for that time period.
+      operationId: getZoneTimetableBlocks # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+        - in: path
+          name: timetableTypeId
+          schema:
+            $ref: '#/components/schemas/TimetableTypeId'
+          required: true
+          example: 1
+          description: ID of a timetable type
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimetableBlock'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/schedule/timetables/{timetableTypeId}/blocks/{dayType}:
+    get:
+      summary: Get the user defined timetable blocks for the given zoneId, timetableTypeId and dayType
+      # the double empty lines below are intentional, they control the layout in Swagger UI.
+      description: >
+        For each zone you can define three different timetables, where each timetable is identified by a timetable type: 
+
+        * ONE_DAY (the same schedule for every day of the week),
+
+        * THREE_DAY (the same schedule for weekdays, and a separate schedule for saturday and sunday) and
+
+        * SEVEN_DAY (a different schedule for each day of the week).
+
+
+        Only one of these timetables can be active at any one time 
+        (see `/homes/{homeId}/zones/{zoneId}/schedule/activeTimetable`).
+
+
+        Each timetable for a timetable type consists of an array of blocks.
+        Each block consists of a day type (e.g. MONDAY_TO_FRIDAY for the THREE_DAY timetable type), a start time and end time 
+        and the setting (e.g. temperature) for that time period.
+      operationId: getTimetableBlocksByDayType # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+        - in: path
+          name: timetableTypeId
+          schema:
+            $ref: '#/components/schemas/TimetableTypeId'
+          required: true
+          example: 1
+          description: ID of a timetable type
+        - in: path
+          name: dayType
+          schema:
+            $ref: '#/components/schemas/DayType'
+          required: true
+          example: MONDAY_TO_FRIDAY
+          description: name of a day type
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimetableBlock'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+    put:
+      summary: Update the timetable (containing all blocks!) for the given zoneId, timetableTypeId and dayType
+      operationId: setTimetableBlocksForDayType # hint for client code generators
+      tags:
+        - zone control
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+        - in: path
+          name: timetableTypeId
+          schema:
+            $ref: '#/components/schemas/TimetableTypeId'
+          required: true
+          example: 1
+          description: ID of a timetable type
+        - in: path
+          name: dayType
+          schema:
+            $ref: '#/components/schemas/DayType'
+          required: true
+          example: MONDAY_TO_FRIDAY
+          description: name of a day type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TimetableBlock'
+            examples:
+              heating-workday:
+                value:
+                  - dayType: MONDAY_TO_FRIDAY
+                    start: "00:00"
+                    end: "07:00"
+                    geolocationOverride: false
+                    setting:
+                      type: HEATING
+                      power: "ON"
+                      temperature:
+                        celsius: 15
+                  - dayType: MONDAY_TO_FRIDAY
+                    start: "07:00"
+                    end: "08:30"
+                    geolocationOverride: false
+                    setting:
+                      type: HEATING
+                      power: "ON"
+                      temperature:
+                        celsius: 19.5
+                  - dayType: MONDAY_TO_FRIDAY
+                    start: "08:30"
+                    end: "17:30"
+                    geolocationOverride: false
+                    setting:
+                      type: HEATING
+                      power: "ON"
+                      temperature:
+                        celsius: 15
+                  - dayType: MONDAY_TO_FRIDAY
+                    start: "17:30"
+                    end: "00:00"
+                    geolocationOverride: false
+                    setting:
+                      type: HEATING
+                      power: "ON"
+                      temperature:
+                        celsius: 19.5
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimetableBlock'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  ####################################################################################################################
+  # device paths
+  /devices/{deviceId}:
+    get:
+      summary: Get a single tado device.
+      operationId: getDevice # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: deviceId
+          schema:
+            $ref: '#/components/schemas/DeviceId'
+          required: true
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /devices/{deviceId}/childLock:
+    put:
+      summary: Enable or disable the child lock for this device.
+      operationId: setChildLock # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: deviceId
+          schema:
+            $ref: '#/components/schemas/DeviceId'
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChildLock'
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /devices/{deviceId}/identify:
+    post:
+      summary: Instruct the device to say 'hi' on its display.
+      description: This is only supported for devices which have the `IDENTIFY` capability.
+      operationId: identifyDevice # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: deviceId
+          schema:
+            $ref: '#/components/schemas/DeviceId'
+          required: true
+      responses:
+        '200':
+          description: successful response; response body is empty, but response statuscode is 200 and not 204
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /devices/{deviceId}/temperatureOffset:
+    get:
+      summary: Get the temperature offset for the given device.
+      description: >
+        Depending on how close the tado measuring device in a room is to the heating/cooling source,
+        the measured temperature might be off.
+        
+        The offset instructs tado to increase/decrease the measured temperature by a certain amount,
+        before it starts using the value as input for automated temperature control.
+      operationId: getTemperatureOffset # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: deviceId
+          schema:
+            $ref: '#/components/schemas/DeviceId'
+          required: true
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Temperature'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    put:
+      summary: Set the temperature offset for the given device (there is no DELETE for this resource).
+      description: >
+        Depending on how close the tado measuring device in a room is to the heating/cooling source,
+        the measured temperature might be off.
+        
+        The offset instructs tado to increase/decrease the measured temperature by a certain amount,
+        before it starts using the value as input for automated temperature control.
+      operationId: setTemperatureOffset # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: deviceId
+          schema:
+            $ref: '#/components/schemas/DeviceId'
+          required: true
+          description: the serialNo of a tado device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Temperature'
+            examples:
+              celsius:
+                value:
+                  celsius: 1.75
+              fahrenheit:
+                value:
+                  fahrenheit: -2.25
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Temperature'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/devices:
+    get:
+      summary: Get all tado devices associated with the provided homeId.
+      description: >
+        There are multiple ways to list the tado devices in a home or zone:
+        
+        * GET /homes/{homeId}/devices **this operation**
+        
+        * GET /homes/{homeId}/deviceList
+        
+        * GET /homes/{homeId}/zones
+        
+        * GET /homes/{homeId}/zones/{zoneId}/control
+        
+        
+        Distinguishing features of **this operation**:
+        
+        * **DeviceType 'IB01'**: device of DeviceType 'IB01' (Internet Bridge) is included in the response
+
+        * **duties**: the response does not tell you the duties of each device
+
+        * **zone**: the response does not tell you the zone each device belongs to
+
+      operationId: getDevices # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/deviceList:
+    get:
+      summary: Get all tado devices associated with the provided homeId, together with the zone (a.k.a. room) they are in.
+      description: >
+        There are multiple ways to list the tado devices in a home or zone:
+        
+        * GET /homes/{homeId}/devices 
+        
+        * GET /homes/{homeId}/deviceList **this operation**
+        
+        * GET /homes/{homeId}/zones
+        
+        * GET /homes/{homeId}/zones/{zoneId}/control
+        
+        
+        Distinguishing features of **this operation**:
+        
+        * **DeviceType 'IB01'**: device of DeviceType 'IB01' (Internet Bridge) is included in the response
+        
+        * **duties**: the response only tells you if the device has a UI duty, no other duties (like driver or leader) are mentioned
+        
+        * **zone**: the response tells you the zone each device belongs to
+
+      operationId: getDeviceList # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/installations:
+    get:
+      summary: Response only contains AC installations; will be empty when there are no ACs in the home.
+      operationId: getInstallations # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Installation'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/installations/{installationId}:
+    get:
+      summary: Returns the specified installation.
+      operationId: getInstallation # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: installationId
+          schema:
+            $ref: '#/components/schemas/InstallationId'
+          required: true
+          description: unique ID of an installation within the specified home
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Installation'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/control:
+    get:
+      summary: >
+        Returns the heating circuit the zone (a.k.a. room) belongs to, and the tado devices within the zone 
+        grouped by their duty. [ NO tado X]
+      description: >
+        There are multiple ways to list the tado devices in a home or zone:
+
+        * GET /homes/{homeId}/devices 
+
+        * GET /homes/{homeId}/deviceList 
+
+        * GET /homes/{homeId}/zones
+
+        * GET /homes/{homeId}/zones/{zoneId}/control **this operation**
+
+
+        Distinguishing features of **this operation**:
+
+        * **device types**: devices of DeviceType 'IB01' (Internet Bridge) and 'BR02' (Wireless Receiver) are not included in the response
+
+        * **duties**: the response tells you thy duty each device has (ui, driver, leader)
+
+        * **zone**: the response tells you the zone each device belongs to
+
+      operationId: getZoneControl # hint for client code generators
+      tags:
+        - device
+        - heating circuit
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneControl'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/zones/{zoneId}/control/heatingCircuit:
+    put:
+      summary: Assign the zone to a specific heating circuit or make it independent of a heating circuit. [ NO tado X]
+      description: >
+        See /homes/{homeId}/heatingCircuits to get a list of heating circuits in a home.
+        
+        In the tado documentation a heating circuit is called a 'heating zone'. 
+        It is defined as 
+        "A Heating Zone refers to the piping system that carries hot water from the boiler to your rooms, 
+         and back to the boiler."
+        
+        A 'heating zone' is not to be confused with a 'zone'; a 'zone' represents a single room 
+        which is serviced by a 'heating zone'
+      operationId: setHeatingCircuit
+      tags:
+        - heating circuit
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: false
+        description: leave it empty to remove a zone from a heating cicruit
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeatingCircuitInput'
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneControl'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/devices:
+    post:
+      summary: Move a device to another pre-existing zone (a.k.a. room)
+      description: Use POST /homes/{homeId}/zones to move a device to a new zone.
+      operationId: moveDevice
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+        - in: query
+          name: force
+          schema:
+            type: boolean
+          description: >
+            To be investigated further. 
+            'true' seems to indicate that the zone the device belonged to previously should be deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serialNo:
+                  $ref: '#/components/schemas/DeviceId'
+      responses:
+        '200':
+          description: successful response (empty)
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  /homes/{homeId}/zones/{zoneId}/measuringDevice:
+    get:
+      summary: Returns the tado device which measures temperature and humidity in the given zone (a.k.a. room).
+      description: Returns 404 when applied to a HOT_WATER zone
+      operationId: getZoneMeasuringDevice # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+    put:
+      summary: Set the tado device which should measure temperature and humidity in the given zone (a.k.a. room).
+      description: Not applicable for a HOT_WATER zone
+      operationId: setZoneMeasuringDevice # hint for client code generators
+      tags:
+        - device
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serialNo:
+                  $ref: '#/components/schemas/DeviceId'
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+        '422':
+          $ref: '#/components/responses/InputError422'
+
+  ####################################################################################################################
+  # report paths
+
+  /homes/{homeId}/zones/{zoneId}/dayReport:
+    get:
+      summary: Get historic information for a particular day for a particular zone (a.k.a. room).
+      description: Not supported for zones of ZoneType HOT_WATER
+      operationId: getZoneDayReport # hint for client code generators
+      tags:
+        - report
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: zoneId
+          schema:
+            $ref: '#/components/schemas/ZoneId'
+          required: true
+          description: ID of a zone (unique within a home)
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          required: false
+          example: "2018-02-14"
+          description: current date is used when this query parameter is not provided
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  ####################################################################################################################
+  # invitation paths
+  /homes/{homeId}/invitations:
+    get:
+      summary: Get all pending invitations.
+      operationId: getInvitations # hint for client code generators
+      tags:
+        - invitation
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invitation'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+    post:
+      summary: Send an invitation
+      operationId: sendInvitation # hint for client code generators
+      tags:
+        - invitation
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationRequest'
+      responses:
+        '200':
+          description: successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+
+  /homes/{homeId}/invitations/{invitationToken}:
+    delete:
+      summary: Revoke an invitation
+      operationId: revokeInvitation # hint for client code generators
+      tags:
+        - invitation
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: invitationToken
+          schema:
+            $ref: '#/components/schemas/InvitationToken'
+          required: true
+          description: unique token of the invitation
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+  /homes/{homeId}/invitations/{invitationToken}/resend:
+    post:
+      summary: Resend an invitation
+      operationId: resendInvitation # hint for client code generators
+      tags:
+        - invitation
+      parameters:
+        - in: path
+          name: homeId
+          schema:
+            $ref: '#/components/schemas/HomeId'
+          required: true
+          description: unique ID of a home the authenticated user has access to
+        - in: path
+          name: invitationToken
+          schema:
+            $ref: '#/components/schemas/InvitationToken'
+          required: true
+          description: unique token of the invitation to resend
+      responses:
+        '204':
+          description: successful response
+        '401':
+          $ref: '#/components/responses/Unauthorized401'
+        '403':
+          $ref: '#/components/responses/AccessDenied403'
+        '404':
+          $ref: '#/components/responses/NotFound404'
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: https://auth.tado.com/oauth/token
+          scopes: {}
+
+  responses:
+    Unauthorized401:
+      description: unauthorized, invalid access token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    AccessDenied403:
+      description: access denied, the authenticated user does not have access to the specified resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound404:
+      description: not found, the specified resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InputError422:
+      description: >
+        The request body is invalid or the requested operation is not supported.
+        This can have all kinds of reasons, some examples:
+        
+        * a required property is missing
+        
+        * an invalid value is used for a property
+        
+        * a particular operation is not allowed on a resource given the state of the resource
+        
+        * a particular zone specific operation is not supported for the zone's ZoneTYpe
+        
+        * a particular operation requires a paid Auto-Assist subscription which is not active for the home
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse422'
+
+  schemas:
+    # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    ActivityDataPoints:
+      type: object
+      description: Part of ZoneState. Empty for a HOT_WATER zone
+      properties:
+        heatingPower:
+          $ref: '#/components/schemas/PercentageDataPoint'
+        acPower:
+          $ref: '#/components/schemas/PowerDataPoint'
+
+    AirComfort:
+      type: object
+      description: >
+        Result of /homes/{homeId}/airComfort. 
+        Comfort properties (except roomId) are not present when there is no connection with the measuring device in the room
+        (e.g because of an empty device battery).
+      properties:
+        freshness:
+          type: object
+          properties:
+            value:
+              $ref: '#/components/schemas/AirFreshness'
+            lastOpenWindow:
+              type: string
+              format: date-time
+              example: "2024-08-07T16:40:03Z"
+            acPoweredOn:
+              type: boolean
+              example: false
+            lastAcPowerOff:
+              type: string
+              format: date-time
+              example: "2025-01-22T21:00:00.000Z"
+        comfort:
+          type: array
+          items:
+            type: object
+            properties:
+              roomId:
+                $ref: '#/components/schemas/ZoneId'
+              temperatureLevel:
+                $ref: '#/components/schemas/TemperatureLevel'
+              humidityLevel:
+                $ref: '#/components/schemas/HumidityLevel'
+              coordinate:
+                type: object
+                properties:
+                  radial:
+                    type: number
+                    format: float
+                    example: 0.22
+                  angular:
+                    type: integer
+                    example: 76
+
+    AirConditioningZoneSettings:
+      type: object
+      description: used in ZoneCapabilities for zones of type AIR_CONDITIONING
+      allOf:
+        - $ref: '#/components/schemas/AirConditioningZoneSettingsBase'
+        - properties:
+            temperature:
+              $ref: '#/components/schemas/Temperature'
+
+    AirConditioningZoneSettingsBase:
+      type: object
+      description: used in ZoneCapabilities for zones of type AIR_CONDITIONING
+      properties:
+        fanLevel:
+          $ref: '#/components/schemas/FanLevel'
+        verticalSwing:
+          $ref: '#/components/schemas/VerticalSwing'
+        horizontalSwing:
+          $ref: '#/components/schemas/HorizontalSwing'
+        light:
+          $ref: '#/components/schemas/Light'
+
+    AirConditioningMode:
+      type: string
+      enum: [AUTO, COOL, HEAT, DRY, FAN]
+      example: COOL
+
+
+    AirConditioningModeCapabilities:
+      type: object
+      description: used in ZoneCapabilities for zones of type AIR_CONDITIONING
+      allOf:
+        - $ref: '#/components/schemas/AirConditioningModeCapabilitiesBase'
+        - properties:
+            temperatures:
+              $ref: '#/components/schemas/TemperatureCapability'
+
+    AirConditioningModeCapabilitiesBase:
+      type: object
+      description: used in ZoneCapabilities for zones of type AIR_CONDITIONING
+      properties:
+        fanLevel:
+          type: array
+          items:
+            $ref: '#/components/schemas/FanLevel'
+        verticalSwing:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerticalSwing'
+        horizontalSwing:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorizontalSwing'
+        light:
+          type: array
+          items:
+            $ref: '#/components/schemas/Light'
+
+    AirFreshness:
+      type: string
+      enum: [FAIR, FRESH]
+      example: FRESH
+      description: The air freshness level for the entire home. Used in AirComfort.
+
+    AwayRadiusInput:
+      type: object
+      properties:
+        awayRadiusInMeters:
+          type: number
+          format: float
+          example: 400
+
+    # BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+    BatteryState:
+      type: string
+      enum: [LOW, NORMAL]
+      example: NORMAL
+      description: device property known to be present for DeviceType SU02, VA02
+
+    Boiler1:
+      type: object
+      description: element of HeatingSystem
+      properties:
+        present:
+          type: boolean
+          example: true
+        id:
+          type: integer
+          example: 2699
+          description: Tado specific id of the type of boiler you have, it gets set when you select a boiler via the app
+        found:
+          type: boolean
+          example: true
+
+    Boiler2:
+      type: object
+      description: Response of GET /homeByBridge/{bridgeId}/boilerInfo
+      properties:
+        boilerPresent:
+          type: boolean
+          example: true
+        boilerId:
+          type: integer
+          example: 2699
+          description: >
+            Tado specific id of the type of boiler you have, it gets set when you select a boiler via the app     
+
+    BoilerMaxOutputTemperature:
+      type: object
+      description: Used in GET/POST /homeByBridge/{bridgeId}/boilerMaxOutputTemperature
+      properties:
+        boilerMaxOutputTemperatureInCelsius:
+          type: number
+          format: float
+          example: 55.0
+
+    BoilerWiringInstallationState:
+      type: object
+      description: response of GET /homeByBridge/{bridgeId}/boilerWiringInstallationState
+      properties:
+        state:
+          type: string
+          example: INSTALLATION_COMPLETED
+        deviceWiredToBoiler:
+          type: object
+          properties:
+            type:
+              # not using schema type #/components/schemas/DeviceType here on purpose
+              # because it would not allow us to define a description and example specific for its use here
+              type: string
+              example: BR02
+            serialNo:
+              # not using schema type #/components/schemas/DeviceId here on purpose
+              # because it would not allow us to define a description and example specific for its use here
+              type: string
+              example: BR123456789
+            thermInterfaceType:
+              type: string
+              example: UBA_BUS
+              description: |
+                known values:
+                
+                * OPENTHERM
+                * UBA_BUS
+            connected:
+              type: boolean
+              example: true
+            lastRequestTimestamp:
+              type: string
+              format: date-time
+              example: "2024-12-30T11:10:24.433Z"
+        bridgeConnected:
+          type: boolean
+          example: true
+        hotWaterZonePresent:
+          type: boolean
+          example: true
+        boiler:
+          type: object
+          properties:
+            outputTemperature:
+              type: object
+              properties:
+                celsius:
+                  type: number
+                  format: float
+                  example: "56.0"
+                timestamp:
+                  type: string
+                  format: date-time
+                  example: "2024-12-30T10:58:44.000Z"
+
+    BooleanDataInterval:
+      type: object
+      description:
+        Element of DayReport and ZoneState.
+        Used to express measuredData.measuringDeviceConnected (ZoneState), hotWaterProduction (ZoneState)
+        and weather.sunny (DayReport)
+      allOf:
+        - $ref: '#/components/schemas/DataInterval'
+        - properties:
+            value:
+              type: boolean
+              example: true
+
+    BooleanTimeSeries:
+      type: object
+      description: >
+        Element of DayReport and ZoneState. 
+        Used to express measuredData.measuringDeviceConnected (ZoneState), hotWaterProduction (ZoneState) 
+        and weather.sunny (DayReport)
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataIntervals
+        valueType:
+          type: string
+          example: boolean
+        dataIntervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/BooleanDataInterval'
+
+    Bridge:
+      type: object
+      description: tado Internet Bridge
+      properties:
+        partner:
+          description: meaning and type of this property is unknown
+        homeId:
+          $ref: '#/components/schemas/HomeId'
+
+    BridgeId:
+      type: string
+      example: IB1234567890
+      description: the serialNo of a tado Internet bridge
+
+    # CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+    CallForHeatTimeSeries:
+      type: object
+      description: element of DayReport
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataIntervals
+        valueType:
+          type: string
+          example: callForHeat
+        dataIntervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallForHeatDataInterval'
+
+    CallForHeatDataInterval:
+      type: object
+      description: element of DayReport
+      allOf:
+        - $ref: '#/components/schemas/DataInterval'
+        - properties:
+            value:
+              $ref: '#/components/schemas/CallForHeatValue'
+
+    CallForHeatValue:
+      type: string
+      enum: [ NONE, LOW, MEDIUM, HIGH]
+      example: LOW
+      description: element of DayReport
+
+    ChildLock:
+      type: object
+      description: input for PUT /devices/{deviceId}/childLock
+      properties:
+        childLockEnabled:
+          type: boolean
+          example: false
+
+    # DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+    DataInterval:
+      type: object
+      description: element of a DayReport
+      properties:
+        from:
+          type: string
+          format: date-time
+          example: "2024-01-10T22:45:00.000Z"
+        to:
+          type: string
+          format: date-time
+          example: "2024-01-11T23:15:00.000Z"
+
+    DayReport:
+      type: object
+      description: result of /homes/{homeId}/zones/{zoneId}/dayReport
+      properties:
+        zoneType:
+          $ref: '#/components/schemas/ZoneType'
+        interval:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+              example: "2024-01-10T22:45:00.000Z"
+            to:
+              type: string
+              format: date-time
+              example: "2024-01-11T23:15:00.000Z"
+        hoursInDay:
+          type: integer
+          example: 24
+        measuredData:
+          properties:
+            measuringDeviceConnected:
+              $ref: '#/components/schemas/BooleanTimeSeries'
+            insideTemperature:
+              $ref: '#/components/schemas/TemperatureTimeSeries'
+            humidity:
+              $ref: '#/components/schemas/PercentageTimeSeries'
+        stripes:
+          $ref: '#/components/schemas/StripesTimeSeries'
+        settings:
+          $ref: '#/components/schemas/ZoneSettingTimeSeries'
+        callForHeat:
+          $ref: '#/components/schemas/CallForHeatTimeSeries'
+        hotWaterProduction:
+          $ref: '#/components/schemas/BooleanTimeSeries'
+        acActivity:
+          $ref: '#/components/schemas/PowerTimeSeries'
+        weather:
+          type: object
+          properties:
+            condition:
+              $ref: '#/components/schemas/WeatherConditionTimeSeries'
+            sunny:
+              $ref: '#/components/schemas/BooleanTimeSeries'
+            slots:
+              $ref: '#/components/schemas/WeatherSlotTimeSeries'
+
+    DayType:
+      type: string
+      enum: [MONDAY_TO_SUNDAY, MONDAY_TO_FRIDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+      example: MONDAY_TO_FRIDAY
+      description: >
+        used in timetables
+        
+        
+        applicable values: 
+
+        * for timetableType 0 (ONE_DAY) : MONDAY_TO_SUNDAY
+
+        * for timetableType 1 (THREE_DAY): MONDAY_TO_FRIDAY, SATURDAY, SUNDAY
+
+        * for timetableType 2 (SEVEN_DAY): MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+
+    DazzleInput:
+      type: object
+      description: Used in PUT /homes/{homeId}/zones/{zoneId}/dazzle
+      properties:
+        enabled:
+          type: boolean
+          example: true
+
+    DefaultZoneOverlay:
+      type: object
+      description: >
+        Used in /homes/{homeId}/zones/{zoneId}/defaultOverlay.
+
+        It defines the default zone overlay termination type which tado will use when a user set zone settings (like temperature)
+        via a physical tado device like a Smart Thermostat.
+        (this results in setting a ZoneOverlay).
+
+        The `type` defined here is used as the value for ZoneOverlay.termination.typeSkillBasedApp when setting a ZoneOverlay.
+      properties:
+        terminationCondition:
+          type: object
+          properties:
+            type:
+              $ref: '#/components/schemas/ZoneOverlayTerminationType'
+            durationInSeconds:
+              type: integer
+              example: 600
+              description: only applicable when type is TIMER
+
+    Device:
+      type: object
+      description: >
+        A piece of tado hardware
+        
+        
+        Some of the properties are only available for certain device types. 
+        Certain values for some properties are only applicable to certain device types. 
+        Wherever device type specific information is known, it is documented. 
+        But you cannot count on this information being fully complete.
+      properties:
+        deviceType:
+          $ref: '#/components/schemas/DeviceType'
+        serialNo:
+          $ref: '#/components/schemas/DeviceId'
+        shortSerialNo:
+          type: string
+          example: SU4126044345
+        currentFwVersion:
+          type: string
+          example: 215.1
+        connectionState:
+          type: object
+          description: "property known to be present for DeviceType SU02, VA02, BR02"
+          properties:
+            value:
+              type: boolean
+              example: true
+            timestamp:
+              type: string
+              format: date-time
+              example: "2022-11-25T09:40:14.803Z"
+        characteristics:
+          type: object
+          properties:
+            capabilities:
+              type: array
+              description: array known to be empty for DeviceType BR02
+              items:
+                type: string
+                example: INSIDE_TEMPERATURE_MEASUREMENT
+                description: >
+                  known values: 
+                  
+                  * INSIDE_TEMPERATURE_MEASUREMENT (seen for DeviceType SU02, VA02)
+                  
+                  * IDENTIFY (seen for DeviceType SU02, VA02)
+                  
+                  * RADIO_ENCRYPTION_KEY_ACCESS (seen for DeviceType IB01)
+        mountingState:
+          type: object
+          description: property known to be present for DeviceType VA02
+          properties:
+            value:
+              type: string
+              example: CALIBRATED
+              description: >
+                known values: 
+                
+                * CALIBRATED
+                
+                * CALIBRATING
+            timestamp:
+              type: string
+              format: date-time
+              example: "2022-11-25T09:40:14.803Z"
+        mountingStateWithError:
+          type: string
+          example: CALIBRATED
+          description: >
+            property known to be present for DeviceType VA02; 
+            
+            known values: 
+            
+            * CALIBRATED
+            
+            * CALIBRATING
+        batteryState:
+          $ref: '#/components/schemas/BatteryState'
+        orientation:
+          $ref: '#/components/schemas/Orientation'
+        childLockEnabled:
+          type: boolean
+          example: false
+          description: "property known to be present for DeviceType VA02"
+        isDriverConfigured:
+          type: boolean
+          example: true
+          description: "property known to be present for DeviceType BR02"
+        inPairingMode:
+          type: boolean
+          example: false
+          description: "property known to be present for DeviceType IB01"
+        accessPointWiFi:
+          type: object
+          description: "property known to be present for DeviceType WR02 (AC control)"
+          properties:
+            ssid:
+              type: string
+              example: tado1234
+        commandTableUploadState:
+          type: string
+          example: FAILED
+          description: "property known to be present for DeviceType WR02 (AC control)"
+    DeviceExtra:
+      description: >
+        A piece of tado hardware.
+        
+        
+        Some of the properties are only available for certain device types. 
+        Certain values for some properties are only applicable for certain device types. 
+        Wherever device type specific information is known, it is documented.
+      allOf:
+        - $ref: '#/components/schemas/Device'
+        - properties:
+            duties:
+              type: array
+              items:
+                type: string
+                example: ZONE_UI
+                description: >
+                  known values: 
+                  
+                  * ZONE_UI (seen for DeviceType SU02, VA02)
+                  
+                  * ZONE_LEADER (seen for DeviceType SU02, VA02; 
+                    indicates that the device is the temperature measuring device for the zone)
+                  
+                  * ZONE_DRIVER (seen for DeviceType VA02)
+
+    DeviceId:
+      type: string
+      example: SU4126044356
+      description: the serialNo of a tado device
+
+    DeviceList:
+      type: object
+      description: result of /homes/{homeId}/zones/{zoneId}/deviceList
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceListItem'
+
+    DeviceListItem:
+      type: object
+      description: Element of DeviceList
+      properties:
+        type:
+          $ref: '#/components/schemas/DeviceType'
+        device:
+          $ref: '#/components/schemas/Device'
+        zone:
+          type: object
+          description: This property is not present for devices of type 'IB01' (Internet Bridge) and 'BR02' (Wireless Receiver).
+          properties:
+            discriminator:
+              $ref: '#/components/schemas/ZoneId'
+            duties:
+              type: array
+              description: This property has only been seen for devices of type 'SU02'
+              items:
+                type: string
+                example: UI
+                description: >
+                  known values: 
+                  
+                  * UI (seen for DeviceType SU02)"
+
+    DeviceType:
+      type: string
+      example: SU02
+      description: >
+        data element of Device
+        
+        
+        known values: 
+        
+        * GW01 (Gateway V1)
+
+        * GW02 (Bridge V2)
+
+        * IB01 (Internet Bridge V3+)
+        
+        * BX02 (Box V1)
+        
+        * BU01 (Extension Kit UK)
+        
+        * EK01 (Extension Kit UK)
+        
+        * BR02 (Wireless Receiver V3+)
+        
+        * BP02 (Wireless Receiver UK V3+)
+        
+        * RU01 (Smart Thermostat V3)
+      
+        * RU02 (Wired Smart Thermostat V3+)
+        
+        * TS02 (Temp Sensor V1)
+        
+        * SU02 (Wireless Temperature Sensor V3+)
+        
+        * VA01 (Smart Radiator Thermostat V3)
+        
+        * VA02 (Smart Radiator Thermostat V3+)
+        
+        * WR01 (Smart AC Control V3)
+        
+        * WR02 (Smart AC Control V3+)
+
+    # EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+    EarlyStart:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          example: false
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: meaningful textual code associated with the HTTP status code like 'accessDenied' (for 403) or 'unauthorized' for (401)
+        title:
+          type: string
+          description: detailed description of the error in natural language (english)
+
+    Error422:
+      description: >
+        The zoneType is only available for certain 422 errors, 
+        to indicate that a certain zone specific operation is not allowed because of the ZoneType of the zone.
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - properties:
+            zoneType:
+              $ref: '#/components/schemas/ZoneType'
+
+    ErrorResponse:
+      type: object
+      description: error object returned for non-200 responses
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
+
+    ErrorResponse422:
+      type: object
+      description: error object returned for 422 responses
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error422'
+
+    # FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    FanLevel:
+      type: string
+      enum: [AUTO, LEVEL1, LEVEL2, LEVEL3, LEVEL4, LEVEL5, SILENT]
+      description: Used in AirConditioningZoneSettingsBase and AirConditioningModeCapabilitiesBase
+
+    FlowTemperatureOptimization:
+      type: object
+      description: Result of 'GET /homes/{homeId}/flowTemperatureOptimization'
+      properties:
+        hasMultipleBoilerControlDevices:
+          type: boolean
+          example: false
+        maxFlowTemperature:
+          type: integer
+          example: 50
+          description: >
+            Not clear if this property always represents a centigrade value,
+            or if the unit is based on `Home.temperatureUnit`
+        maxFlowTemperatureConstraints:
+          type: object
+          properties:
+            min:
+              type: integer
+              example: 30
+              description: >
+                Not clear if this property always represents a centigrade value,
+                or if the unit is based on `Home.temperatureUnit`
+            max:
+              type: integer
+              example: 80
+              description: >
+                Not clear if this property always represents a centigrade value,
+                or if the unit is based on `Home.temperatureUnit`
+        autoAdaptation:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              example: false
+            maxFlowTemperature:
+              type: integer
+              nullable: true
+        openThermDeviceSerialNumber:
+          type: string
+
+    FlowTemperatureOptimizationInput:
+      description: Input for 'PUT /homes/{homeId}/flowTemperatureOptimization'
+      properties:
+        maxFlowTemperature:
+          type: number
+          example: 50
+          description: >
+            Not clear if this property always represents a centigrade value,
+            or if the unit is based on `Home.temperatureUnit`
+
+    # HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
+    HeatingCircuit:
+      type: object
+      description: >
+        Result of /homes/{homeId}/heatingCircuits
+        
+        
+        A tado device which controls a heating circuit
+      properties:
+        number:
+          $ref: '#/components/schemas/HeatingCircuitId'
+        driverSerialNo:
+          type: string
+          example: BR3209250550
+          description: serial number of the tado device which controls the heating circuit
+        driverShortSerialNo:
+          type: string
+          example: BR3209250550
+          description: short serial number of the tado device which controls the heating circuit
+
+    HeatingCircuitId:
+      type: integer
+      example: 1
+
+    HeatingCircuitInput:
+      description: Used in PUT /homes/{homeId}/zones/{zoneId}/control/heatingCircuit
+      type: object
+      properties:
+        circuitNumber:
+          $ref: '#/components/schemas/HeatingCircuitId'
+
+    HeatingSystem:
+      type: object
+      description: result of /homes/{homeId}/heatingSystem
+      properties:
+        boiler:
+          $ref: '#/components/schemas/Boiler1'
+        underfloorHeating:
+          $ref: '#/components/schemas/UnderfloorHeating'
+
+    Home:
+      description: A home controlled by tado. Result of /homes
+      allOf:
+        - $ref: '#/components/schemas/HomeDetails'
+        - properties:
+            dateTimeZone:
+              type: string
+              example: "Europe/Amsterdam"
+            dateCreated:
+              type: string
+              format: date-time
+              example: "2022-11-25T09:40:14.803Z"
+            temperatureUnit:
+              $ref: '#/components/schemas/TemperatureUnit'
+            partner:
+              description: meaning and type of this property is unknown
+              nullable: true
+            simpleSmartScheduleEnabled:
+              type: boolean
+              example: true
+            awayRadiusInMeters:
+              type: number
+              format: float
+              example: 400
+            installationCompleted:
+              type: boolean
+              example: true
+            incidentDetection:
+              $ref: '#/components/schemas/IncidentDetection'
+            generation:
+              type: string
+              example: PRE_LINE_X
+              description: >
+                known values:
+                
+                * PRE_LINE_X
+                
+                * LINE_X
+            zonesCount:
+              type: integer
+              example: 5
+              description: number of zones is this home
+            language:
+              type: string
+              example: nl
+            skills:
+              type: array
+              items:
+                type: string
+              description: this is assumed to be an array of strings, currently tested set-up returns an empty array
+            christmasModeEnabled:
+              type: boolean
+              example: true
+              description: no idea what this means, but would be really interesting to know more...
+            showAutoAssistReminders:
+              type: boolean
+              example: true
+            consentGrantSkippable:
+              type: boolean
+              example: true
+            enabledFeatures:
+              type: array
+              items:
+                type: string
+                description: >
+                  known values: 
+                  
+                  * AA_SETTINGS_AS_WEBVIEW
+                  
+                  * AA_UPSELLING_A
+                  
+                  * CLIMATE_REPORT_AS_WEBVIEW
+                  
+                  * EIQ_SETTINGS_AS_WEBVIEW
+                  
+                  * ELIGIBLE_FOR_ENERGY_CONSUMPTION
+                  
+                  * ENERGY_CONSUMPTION
+                  
+                  * HIDE_BOILER_REPAIR_SERVICE
+                  
+                  * HOME_SCREEN_AS_WEBVIEW_PROD
+                  
+                  * HOME_SCREEN_AS_WEBVIEW_PROD_ANDROID
+                  
+                  * OWD_SETTINGS_AS_WEBVIEW
+                  
+                  * ROOMS_AND_DEVICES_SETTING_AS_WEBVIEW
+                  
+                  * SMART_SCHEDULE_AS_WEBVIEW
+
+            isAirComfortEligible:
+              type: boolean
+              example: true
+            isBalanceAcEligible:
+              type: boolean
+              example: false
+            isEnergyIqEligible:
+              type: boolean
+              example: true,
+            isHeatSourceInstalled:
+              type: boolean
+              example: false
+            isBalanceHpEligible:
+              type: boolean
+              example: false
+            isHeatPumpInstalled:
+              type: boolean
+              example: false
+            supportsFlowTemperatureOptimization:
+              type: boolean
+              example: false
+
+    HomeBase:
+      type: object
+      description: basic home information which is present in the User component
+      properties:
+        id:
+          $ref: '#/components/schemas/HomeId'
+        name:
+          type: string
+          description: user assigned name for this home
+          example: my home
+
+    HomeDetails:
+      description: Part of the Home component. And used in PUT /homes/{homeId}/homeDetails
+      allOf:
+        - $ref: '#/components/schemas/HomeBase'
+        - properties:
+            contactDetails:
+              type: object
+              description: >
+                the primary contact for this home; 
+                also appears to be the only one to receive any email notifications (like 'low battery' or 'open window' warnings)
+              properties:
+                name:
+                  type: string
+                  example: "Kristel"
+                email:
+                  type: string
+                  example: "kristel@example.com"
+                phone:
+                  type: string
+                  example: "+31123456789"
+            address:
+              type: object
+              description: postal address of this home
+              properties:
+                addressLine1:
+                  type: string
+                  example: "Kerkstraat 1"
+                addressLine2:
+                  type: string
+                  nullable: true
+                zipCode:
+                  type: string
+                  example: "1234AA"
+                city:
+                  type: string
+                  example: "Utrecht"
+                state:
+                  type: string
+                  nullable: true
+                country:
+                  type: string
+                  description: most probably an ISO 3166-1 alpha-3 country code
+                  example: "NLD"
+            geolocation:
+              type: object
+              description: Geo location of this home.
+              properties:
+                latitude:
+                  type: number
+                  format: float
+                  example: 50.1234567
+                longitude:
+                  type: number
+                  format: float
+                  example: -1.1234567
+
+    HomeId:
+      type: integer
+      format: int64
+      example: 1118186
+      description: unique home ID
+
+    HomePresence:
+      type: string
+      enum: [HOME, AWAY]
+      example: HOME
+
+    HomeState:
+      type: object
+      description: |
+        Indicates if tado acts as if there are people present in the home or not. Result of /homes/{homeId}/state.
+        
+        Presence can be auto-determined by tado based on geo-tracking of the mobile devices linked to the home
+        (requires a paid Auto-Assist subscription), or can be manually set by a user.
+      properties:
+        presence:
+          $ref: '#/components/schemas/HomePresence'
+        presenceLocked:
+          type: boolean
+          example: true
+        showHomePresenceSwitchButton:
+          type: boolean
+          example: true
+          description: |
+            This property is present when all mobile devices linked to this home which have geo-tracking enabled 
+            are no longer in (or near) the home.
+            
+            It is a hint to the user to manually set the home presence to AWAY. 
+            When you have a Auto-Assist subscription, tado will do that automatically for you.
+
+    HorizontalSwing:
+      type: string
+      # quotes are necessary;
+      # without it ON and OFF are interpreted as boolean values by the yaml-to-json converter used by openapi-generator
+      enum: [ 'OFF', 'ON', 'RIGHT', 'LEFT', 'MID_RIGHT', 'MID_LEFT']
+      description: Used in AirConditioningZoneSettingsBase and AirConditioningModeCapabilitiesBase
+
+    HumidityLevel:
+      type: string
+      enum:  [HUMID, COMFY, DRY]
+      example: DRY
+      description: Element of AirComfort
+
+    # IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+    IncidentDetection:
+      type: object
+      description: Data elements of a Home. And used in /homes/{homeId}/incidentDetection
+      properties:
+        enabled:
+          type: boolean
+          example: true
+        supported:
+          type: boolean
+          example: true
+
+    IncidentDetectionInput:
+      type: object
+      description: Used in PUT /homes/{homeId}/incidentDetection
+      properties:
+        enabled:
+          type: boolean
+          example: true
+
+    Installation:
+      type: object
+      description: |
+        Result of GET /home/{homeId}/installations.
+        Only present for ACs.
+      properties:
+        id:
+          $ref: '#/components/schemas/InstallationId'
+        type:
+          type: string
+          example: INSTALL_AC_G1
+        revision:
+          type: integer
+          example: 7
+        state:
+          type: string
+          example: COMPLETED
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+        acInstallationInformation:
+          type: object
+          properties:
+            wirelessRemoteHasRequiredFirmware:
+              type: boolean
+              example: true
+            acSpecs:
+              type: object
+              properties:
+                acUnitDisplaysSetPointTemperature:
+                  type: boolean
+                  example: false
+                remoteControl:
+                  type: object
+                  properties:
+                    commandType:
+                      type: string
+                      example: AC_SETTING
+                    temperatureUnit:
+                      $ref: '#/components/schemas/TemperatureUnit'
+                    modelName:
+                      nullable: true
+                    photoS3Key:
+                      nullable: true
+                manufacturer:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "not specified"
+            keyCommandSetRecording:
+              nullable: true
+            acSettingCommandSetRecording:
+              nullable: true
+            createdZone:
+              type: object
+              properties:
+                id:
+                  $ref: '#/components/schemas/ZoneId'
+            selectedSetupBranch:
+              type: string
+              example: NON_THERMOSTATIC
+
+    InstallationId:
+      type: integer
+      example: 0
+      description: ID of an (AC) installation (unique only within the home it belongs to)
+
+    Invitation:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/InvitationToken'
+        email:
+          type: string
+          format: email
+          example: me@example.org
+        firstSent:
+          type: string
+          format: date
+          example: "2025-02-03T18:44:14.658Z"
+        lastSent:
+          type: string
+          format: date
+          example: "2025-02-03T18:44:14.658Z"
+        inviter:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Jane Doe"
+            email:
+              type: string
+              format: email
+              example: "me@example.org"
+            username:
+              type: string
+            enabled:
+              type: boolean
+              example: true
+            id:
+              type: string
+              format: uuid
+              example: "a7c7fc08-e362-4700-e9a1-45a5bded5c124"
+              description: "globally unique user ID"
+            homeId:
+              $ref: '#/components/schemas/HomeId'
+            locale:
+              type: string
+              example: en
+            type:
+              type: string
+              example: "WEB_USER"
+        home:
+          $ref: '#/components/schemas/Home'
+
+    InvitationToken:
+      type: string
+      example: "adc17324216348e287318e8ae1f390fd"
+      description: "hexadecimal unique invitation identifier"
+
+    InvitationRequest:
+      type: object
+      description: input for POST /homes/{homeId}/invitations
+      properties:
+        email:
+          type: string
+          format: email
+
+    # LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+    Light:
+      type: string
+      # quotes are necessary;
+      # without it ON and OFF are interpreted as boolean values by the yaml-to-json converter used by openapi-generator
+      enum: [ 'OFF', 'ON' ]
+      description: Used in AirConditioningZoneSettingsBase and AirConditioningModeCapabilitiesBase
+
+    # MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+    MobileDevice:
+      type: object
+      description: >
+        A phone/tablet/iPad which has the tado app installed, belonging to a particular user 
+        who is a member/resident of a home controlled by tado.
+      properties:
+        id:
+          $ref: '#/components/schemas/MobileDeviceId'
+        name:
+          type: string
+          example: my device
+          description: user assigned name for this device
+        settings:
+          $ref: '#/components/schemas/MobileDeviceSettings'
+        location:
+          $ref: '#/components/schemas/MobileDeviceLocation'
+        deviceMetadata:
+          type: object
+          properties:
+            platform:
+              type: string
+              example: Android
+            osVersion:
+              type: string
+              example: 11
+            model:
+              type: string
+              example: Samsung_SM-T720
+            locale:
+              type: string
+              example: nl
+
+    MobileDeviceId:
+      type: integer
+      format: int64
+      example: 8254700
+
+    MobileDeviceLocation:
+      type: object
+      description: >
+        This data element is only present for mobile devices which have geo-tracking switched on
+        in their tado app.
+      properties:
+        stale:
+          type: boolean
+          example: false
+        atHome:
+          type: boolean
+          example: false
+        bearingFromHome:
+          type: object
+          properties:
+            degrees:
+              type: number
+              format: float
+              example: 282.4422946462286
+            radians:
+              type: number
+              format: float
+              example: 4.929547988464642
+        relativeDistanceFromHomeFence:
+          type: number
+          format: float
+          example: 0.4075597114308104
+
+    MobileDeviceSettings:
+      type: object
+      description: Data element of a MobileDevice. And used in /homes/{homeId}/mobileDevices/{mobileDeviceId}/settings.
+      properties:
+        geoTrackingEnabled:
+          type: boolean
+          example: false
+          description: >
+            When geo-tracking is enabled for a MobileDevice, 
+            and the tado app installed on the device has location permissions on the device, 
+            the MobileDevice object will also contain location details.
+        specialOffersEnabled:
+          type: boolean
+          example: true
+        onDemandLogRetrievalEnabled:
+          type: boolean
+          example: false
+        pushNotifications:
+          type: object
+          properties:
+            lowBatteryReminder:
+              type: boolean
+              example: true
+            awayModeReminder:
+              type: boolean
+              example: true
+            homeModeReminder:
+              type: boolean
+              example: true
+            openWindowReminder:
+              type: boolean
+              example: true
+            energySavingsReportReminder:
+              type: boolean
+              example: true
+            incidentDetection:
+              type: boolean
+              example: true
+            energyIqReminder:
+              type: boolean
+              example: false
+            tariffHighPriceAlert:
+              type: boolean
+              example: true
+            tariffLowPriceAlert:
+              type: boolean
+              example: true
+
+    # OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    OpenWindowDetectionInput:
+      description: Used in PUT /homes/{homeId}/zones/{zoneId}/openWindowDetection
+      type: object
+      properties:
+        roomId:
+          $ref: '#/components/schemas/ZoneId'
+        enabled:
+          type: boolean
+          example: true
+        timeoutInSeconds:
+          type: integer
+          example: 900
+
+    Orientation:
+      type: string
+      enum: [HORIZONTAL, VERTICAL]
+      example: HORIZONTAL
+      description: tado device property known to be present for DeviceType VA02
+
+    # PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+    PercentageDataPoint:
+      type: object
+      description: Used in Weather and ZoneState, to express quantities like heating power, humidity and solar intensity.
+      properties:
+        type:
+          type: string
+          example: PERCENTAGE
+        percentage:
+          type: number
+          format: float
+          example: 51.0
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-07-30T21:51:41.178Z"
+
+    PercentageDataPointInTimeSeries:
+      type: object
+      description: Element of DayReport, used to express humidity.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-10T22:45:00.000Z"
+        value:
+          type: number
+          format: float
+          example: 0.482
+
+    PercentageTimeSeries:
+      type: object
+      description: Element of DayReport, used to express humidity.
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataPoints
+        valueType:
+          type: string
+          example: percentage
+        percentageUnit:
+          type: string
+          example: UNIT_INTERVAL
+        min:
+          type: number
+          format: float
+          example: 0.482
+        max:
+          type: number
+          format: float
+          example: 0.613
+        dataPoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/PercentageDataPointInTimeSeries'
+
+    Power:
+      type: string
+      # quotes are necessary;
+      # without it ON and OFF are interpreted as boolean values by the yaml-to-json converter used by openapi-generator
+      enum: [ 'ON', 'OFF' ]
+      example: ON
+      description: |
+        Used in ZoneSetting, PowerDataInterval and PowerDataPoint; 
+        to express if heating or air conditioning is on or off.
+
+    PowerDataPoint:
+      type: object
+      description: Used in ZoneState, to express acPower.
+      properties:
+        type:
+          type: string
+          example: POWER
+        value:
+          $ref: '#/components/schemas/Power'
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-07-30T21:51:41.178Z"
+
+    PowerDataInterval:
+      type: object
+      description:
+        Element of DayReport.
+        Used to express acActivity
+      allOf:
+        - $ref: '#/components/schemas/DataInterval'
+        - properties:
+            value:
+              $ref: '#/components/schemas/Power'
+
+    PowerTimeSeries:
+      type: object
+      description: >
+        Element of DayReport. 
+        Used to express acActivity.
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataIntervals
+        valueType:
+          type: string
+          example: power
+        dataIntervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/PowerDataInterval'
+
+    PresenceLock:
+      type: object
+      description: Used in /homes/{homeId}/presenceLock
+      properties:
+        homePresence:
+          $ref: '#/components/schemas/HomePresence'
+
+    # SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+    SensorDataPoints:
+      type: object
+      description: Element of ZoneState. Empty for a HOT_WATER zone
+      properties:
+        insideTemperature:
+          $ref: '#/components/schemas/TemperatureDataPoint'
+        humidity:
+          $ref: '#/components/schemas/PercentageDataPoint'
+
+    StripesTimeSeries:
+      type: object
+      description: Element of DayReport
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataIntervals
+        valueType:
+          type: string
+          example: stripes
+        dataIntervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/StripesDataInterval'
+
+    StripesDataInterval:
+      type: object
+      description: Element of DayReport
+      allOf:
+        - $ref: '#/components/schemas/DataInterval'
+        - properties:
+            value:
+              type: object
+              properties:
+                stripeType:
+                  type: string
+                  example: HOME_LOCATION_BASED_CONTROL_OFF
+                  description: >
+                    known values:
+                    
+                     * HOME
+                    
+                     * HOME_LOCATION_BASED_CONTROL_OFF
+                    
+                     * OPEN_WINDOW_DETECTED
+                    
+                     * OVERLAY_ACTIVE
+                    
+                     * MEASURING_DEVICE_DISCONNECTED
+                setting:
+                  $ref: '#/components/schemas/ZoneSetting'
+
+    # TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+    Temperature:
+      type: object
+      properties:
+        celsius:
+          type: number
+          format: float
+          example: 13.91
+        fahrenheit:
+          type: number
+          format: float
+          example: 57.02
+
+    TemperatureCapability:
+      type: object
+      description: property available for zone type HEATING
+      properties:
+        celsius:
+          type: object
+          properties:
+            min:
+              type: integer
+              example: 5
+            max:
+              type: integer
+              example: 25
+            step:
+              type: number
+              format: float
+              example: 0.1
+        fahrenheit:
+          type: object
+          properties:
+            min:
+              type: integer
+              example: 41
+            max:
+              type: integer
+              example: 77
+            step:
+              type: number
+              format: float
+              example: 0.1
+
+    TemperatureDataPoint:
+      type: object
+      description: Used in Weather and ZoneState, used to express outside or inside temperature.
+      allOf:
+        - $ref: '#/components/schemas/Temperature'
+        - properties:
+            timestamp:
+              type: string
+              format: date-time
+              example: "2024-08-04T09:20:08.370Z"
+            type:
+              type: string
+              example: TEMPERATURE
+            precision:
+              $ref: '#/components/schemas/TemperaturePrecision'
+
+    TemperatureDataPointInTimeSeries:
+      type: object
+      description: Element of DayReport
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-10T22:45:00.000Z"
+        value:
+          $ref: '#/components/schemas/Temperature'
+
+    TemperatureLevel:
+      type: string
+      enum: [ COLD, COMFY, WARM, HOT ]
+      example: WARM
+      description: Used in AirComfort
+
+    TemperaturePrecision:
+      type: object
+      description: |
+        Even when temperature precision is reported as 0.1, 
+        the API can report temperatures with a higher precision like 17.52
+      properties:
+        celsius:
+          type: number
+          format: float
+          example: 0.1
+        fahrenheit:
+          type: number
+          format: float
+          example: 0.1
+
+    TemperatureTimeSeries:
+      type: object
+      description: Element of DayReport, used to express inside temperature.
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataPoints
+        valueType:
+          type: string
+          example: temperature
+        min:
+          $ref: '#/components/schemas/Temperature'
+        max:
+          $ref: '#/components/schemas/Temperature'
+        dataPoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemperatureDataPointInTimeSeries'
+
+    TemperatureUnit:
+      type: string
+      enum: [ CELSIUS, FAHRENHEIT ]
+      example: CELSIUS
+
+    TimetableBlock:
+      type: object
+      description: Time segment of a scheduled timetable to control the (temperature) settings of a zone (a.k.a. room)
+      properties:
+        dayType:
+          $ref: '#/components/schemas/DayType'
+        start:
+          type: string
+          format: time
+          example: "21:00"
+          description: start time of this block in 24 hour clock notation
+        end:
+          type: string
+          format: time
+          example: "22:00"
+          description : end time of this block in 24 hour clock notation
+        geolocationOverride:
+          type: boolean
+          example: false
+          description: >
+            When false, the settings of this time block are only active when tado is in HOME mode. 
+            If in AWAY mode, tado will use the AwayConfiguration settings for this zone.
+            
+            When true, the settings of this time block are always active, regardless of whether
+            tado is in HOME or AWAY mode.
+        setting:
+          $ref: '#/components/schemas/ZoneSetting'
+
+    TimetableType:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/TimetableTypeId'
+        type:
+          $ref: '#/components/schemas/TimetableTypeType'
+
+    TimetableTypeId:
+      type: integer
+      enum: [0, 1, 2]
+      example: 0
+      description: 0 = ONE_DAY, 1 = THREE_DAY, 2 = SEVEN_DAY
+
+    TimetableTypeType:
+      type: string
+      enum: [ONE_DAY, THREE_DAY, SEVEN_DAY]
+      example: ONE_DAY
+      # empty lines are intentional to control Swagger UI rendering
+      description: >
+        Each zone has a schedule which controls the zone's (temperature) settings based on day of the week and time.
+        Each schedule consists of three timetables, one for each timeTableType. 
+        Only one timetable is active at anyone time.
+        
+        The timetable type controls the granularity of `DayType`s used in the timetable:
+        
+        * ONE_DAY = a timetable which support a single day type (MONDAY_TO_SUNDAY), used for every day of the week   
+        
+        * THREE_DAY = a timetable which supports 3 day types, one for MONDAY_TO_FRIDAY, one for SATURDAY and one for SUNDAY
+        
+        * SEVEN_DAY = at timetable which supports 7 day types, one for every day of the week
+
+    # UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+    UnderfloorHeating:
+      type: object
+      description: Element of HeatingSystem
+      properties:
+        present:
+          type: boolean
+          example: false
+
+    User:
+      type: object
+      description: a user with a tado account
+      properties:
+        name:
+          type: string
+          example: Kristel
+        email:
+          type: string
+          example: kristel@example.org
+        username:
+          type: string
+          example: kristel@example.org
+        id:
+          type: string
+          format: uuid
+          description: globally unique user ID
+          example: a7c7fc08-e362-4700-e9a1-45a5bded5c124
+        locale:
+          type: string
+          description: language code for the user selected language in the Account settings part of the app
+          example: en
+        homes:
+          type: array
+          description: the homes this user is linked to
+          items:
+            $ref: '#/components/schemas/HomeBase'
+        mobileDevices:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDevice'
+
+    # VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+    VerticalSwing:
+      type: string
+      # quotes are necessary;
+      # without it ON and OFF are interpreted as boolean values by the yaml-to-json converter used by openapi-generator
+      enum: [ 'OFF', 'MID_UP', 'MID_DOWN', 'ON', 'DOWN', 'UP', 'MID' ]
+      description: Used in AirConditioningZoneSettingsBase and AirConditioningModeCapabilitiesBase
+
+    # WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+    Weather:
+      type: object
+      description: Result of /homes/{homeId}/weather
+      properties:
+        solarIntensity:
+          $ref: '#/components/schemas/PercentageDataPoint'
+        outsideTemperature:
+          $ref: '#/components/schemas/TemperatureDataPoint'
+        weatherState:
+          $ref: '#/components/schemas/WeatherStateDataPoint'
+
+    WeatherConditionTimeSeries:
+      type: object
+      description: Element of DayReport
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataIntervals
+        valueType:
+          type: string
+          example: weatherCondition
+        dataIntervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeatherConditionDataInterval'
+
+    WeatherConditionDataInterval:
+      type: object
+      description: Element of DayReport
+      allOf:
+        - $ref: '#/components/schemas/DataInterval'
+        - properties:
+            value:
+              type: object
+              properties:
+                state:
+                  $ref: '#/components/schemas/WeatherState'
+                temperature:
+                  $ref: '#/components/schemas/Temperature'
+
+    WeatherSlot:
+      type: object
+      description: Element of DayReport
+      properties:
+        state:
+          $ref: '#/components/schemas/WeatherState'
+        temperature:
+          $ref: '#/components/schemas/Temperature'
+
+    WeatherSlotTimeSeries:
+      type: object
+      description: Element of DayReport
+      properties:
+        timeSeriesType:
+          type: string
+          example: slots
+        valueType:
+          type: string
+          example: weatherCondition
+        slots:
+          type: object
+          properties:
+            '04:00':
+              $ref: '#/components/schemas/WeatherSlot'
+            '08:00':
+              $ref: '#/components/schemas/WeatherSlot'
+            '12:00':
+              $ref: '#/components/schemas/WeatherSlot'
+            '16:00':
+              $ref: '#/components/schemas/WeatherSlot'
+            '20:00':
+              $ref: '#/components/schemas/WeatherSlot'
+
+    WeatherState:
+      type: string
+      enum:
+        - CLOUDY
+        - CLOUDY_MOSTLY
+        - CLOUDY_PARTLY
+        - DRIZZLE
+        - FOGGY
+        - NIGHT_CLEAR
+        - NIGHT_CLOUDY
+        - RAIN
+        - SCATTERED_RAIN
+        - SCATTERED_RAIN_SNOW
+        - SCATTERED_SNOW
+        - SNOW
+        - SUN
+        - THUNDERSTORM
+      example: CLOUDY_PARTLY
+      description: Used in DayReport and Weather
+
+    WeatherStateDataPoint:
+      type: object
+      description: Used in Weather
+      properties:
+        type:
+          type: string
+          example: WEATHER_STATE
+        value:
+          $ref: '#/components/schemas/WeatherState'
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-08-04T09:20:08.370Z"
+
+    # ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+    Zone:
+      type: object
+      description: a room in a home whose temperature is controlled by tado
+      properties:
+        id:
+          $ref: '#/components/schemas/ZoneId'
+        name:
+          type: string
+          description: user assigned name
+          example: my living room
+        type:
+          $ref: '#/components/schemas/ZoneType'
+        dateCreated:
+          type: string
+          format: date-time
+          example: "2022-11-25T09:40:14.803Z"
+        deviceTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceType'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceExtra'
+        reportAvailable:
+          type: boolean
+          example: false
+        showScheduleSetup:
+          type: boolean
+          example: true
+        supportsDazzle:
+          type: boolean
+          example: true
+        dazzleEnabled:
+          type: boolean
+          example: true
+        dazzleMode:
+          type: object
+          properties:
+            supported:
+              type: boolean
+              example: true
+            enabled:
+              type: boolean
+              example: true
+        openWindowDetection:
+          type: object
+          properties:
+            supported:
+              type: boolean
+              example: true
+            enabled:
+              type: boolean
+              example: true
+            timeoutInSeconds:
+              type: integer
+              example: 900
+
+    ZoneAwayConfiguration:
+      type: object
+      description: >
+        Controls the (temperature) settings for a zone when the home the zone belongs to is in AWAY mode.
+        The scheduled timetable settings are not used in such a situation.
+        
+        Used in /homes/{homeId}/zones/{zoneId}/awayConfiguration.
+      properties:
+        type:
+          $ref: '#/components/schemas/ZoneType'
+        autoAdjust:
+          type: boolean
+          example: false
+          description: property present for zone type HEATING
+        comfortLevel:
+          type: string
+          nullable: true
+          description: property present for zone type HEATING
+        setting:
+          $ref: '#/components/schemas/ZoneSetting'
+
+    ZoneCapabilities:
+      type: object
+      description: >
+        The presence of the various properties depends on the ZoneType and capabilities of the zone who's capabilities are requested.
+        E.g. `temperatures` will not be available for a HOT_WATER zone with `canSetTemperature: false`.
+        
+        Used in /homes/{homeId}/zones/{zoneId}/capabilities.
+      properties:
+        type:
+          $ref: '#/components/schemas/ZoneType'
+        temperatures:
+          $ref: '#/components/schemas/TemperatureCapability'
+        canSetTemperature:
+          type: boolean
+          example: false
+          description: property available for zone type HOT_WATER
+        AUTO:
+          $ref: '#/components/schemas/AirConditioningModeCapabilitiesBase'
+        HEAT:
+          $ref: '#/components/schemas/AirConditioningModeCapabilities'
+        FAN:
+          $ref: '#/components/schemas/AirConditioningModeCapabilities'
+        COOL:
+          $ref: '#/components/schemas/AirConditioningModeCapabilities'
+        DRY:
+          $ref: '#/components/schemas/AirConditioningModeCapabilities'
+        initialStates:
+          type: object
+          properties:
+            mode:
+              $ref: '#/components/schemas/AirConditioningMode'
+            modes:
+              type: object
+              properties:
+                COOL:
+                  $ref: '#/components/schemas/AirConditioningZoneSettings'
+                HEAT:
+                  $ref: '#/components/schemas/AirConditioningZoneSettings'
+                DRY:
+                  $ref: '#/components/schemas/AirConditioningZoneSettings'
+                FAN:
+                  $ref: '#/components/schemas/AirConditioningZoneSettings'
+                AUTO:
+                  $ref: '#/components/schemas/AirConditioningZoneSettingsBase'
+
+    ZoneCreate:
+      description: Input for POST /home/{homeId}/zones
+      type: object
+      properties:
+        type:
+          type: string
+          example: IMPLICIT_CONTROL
+          description: "known values: IMPLICIT_CONTROL"
+        zoneType:
+          $ref: '#/components/schemas/ZoneType'
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              serialNo:
+                $ref: '#/components/schemas/DeviceId'
+
+    ZoneControl:
+      description: >
+        Result of /homes/{homeId}/zones/{zoneId}/control.
+        
+        
+        Groups the devices in a given zone by their duty.
+        
+        The elements included in the result depend on the ZoneType:
+        
+        * AIR_CONDITIONING: _unknown_
+        
+        * HEATING: includes earlyStartEnabled, heatingCircuit, duties.leader, duties.drivers and duties.uis
+        
+        * HOT_WATER: includes duties.driver and duties.ui
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/ZoneType'
+        earlyStartEnabled:
+          type: boolean
+          example: true
+          description: applicable for ZoneType HEATING
+        heatingCircuit:
+          $ref: '#/components/schemas/HeatingCircuitId'
+        duties:
+          type: object
+          properties:
+            type:
+              $ref: '#/components/schemas/ZoneType'
+            driver:
+              $ref: '#/components/schemas/Device'
+            drivers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Device'
+            leader:
+              $ref: '#/components/schemas/Device'
+            leaders:
+              type: array
+              items:
+                $ref: '#/components/schemas/Device'
+            ui:
+              $ref: '#/components/schemas/Device'
+            uis:
+              type: array
+              items:
+                $ref: '#/components/schemas/Device'
+
+    ZoneDetailsInput:
+      description: Used in PUT /homes/{homeId}/zones/{zoneId}/details
+      type: object
+      properties:
+        name:
+          type: string
+          example: bed room
+
+    ZoneId:
+      type: integer
+      example: 3
+      description: ID of a zone (unique only within the home it belongs to)
+
+    ZoneOpenWindow:
+      type: object
+      description: >
+        Open Window is set when Tado detects an open window in the zone. While Open Window is active, heating is switched off.
+      properties:
+        detectedTime:
+          type: string
+          format: date-time
+        durationInSeconds:
+          type: integer
+        expiry:
+          type: string
+          format: date-time
+        remainingTimeInSeconds:
+          type: integer
+
+    ZoneOverlay:
+      type: object
+      description: >
+        A zone overlay is a user controlled override for the user defined scheduled (temperature) settings of a zone.
+        As long as a zone overlay is present for a zone, the zone's scheduled (temperature) settings do not take effect.
+
+        Termination of the zone overlay (either never, a set time or when the next block in the active timetable starts) 
+        is part of the zone overlay definition.
+      properties:
+        type:
+          $ref: '#/components/schemas/ZoneOverlayType'
+        setting:
+          $ref: '#/components/schemas/ZoneSetting'
+        termination:
+          $ref: '#/components/schemas/ZoneOverlayTermination'
+
+    ZoneOverlays:
+      description: input for POST /homes/{homeId}/overlay
+      type: object
+      properties:
+        overlays:
+          type: array
+          items:
+            type: object
+            properties:
+              room:
+                $ref: '#/components/schemas/ZoneId'
+              overlay:
+                $ref: '#/components/schemas/ZoneOverlay'
+
+    ZoneOverlayTermination:
+      type: object
+      example: MANUAL
+      description: Defines if/how the overlay terminates.
+      properties:
+        type:
+          $ref: '#/components/schemas/ZoneOverlayTerminationType'
+        durationInSeconds:
+          type: integer
+          example: 1400
+          description: "applicable when termination.type = TIMER"
+        remainingTimeInSeconds:
+          type: integer
+          example: 1400
+          description: "applicable when termination.type = TIMER"
+        typeSkillBasedApp:
+          $ref: '#/components/schemas/ZoneOverlayTerminationTypeSkillBasedApp'
+        expiry:
+          type: string
+          format: date-time
+          example: "2024-08-14T23:07:13Z"
+          nullable: true
+          description: "applicable when termination.type = TIMER"
+        projectedExpiry:
+          type: string
+          format: date-time
+          example: "2024-08-14T23:07:13Z"
+          nullable: true
+          description: "applicable when termination.type = TIMER"
+
+    ZoneOverlayTerminationType:
+      type: string
+      enum: [ MANUAL, TADO_MODE, TIMER ]
+      example: MANUAL
+      description: >
+        Element of a zone overlay.
+
+        Does not contain NEXT_TIME_BLOCK which is present in the ZoneOverlayTerminationTypeSkillBasedApp enum.
+
+        Value descriptions:
+
+        * MANUAL: the (temperature) settings in the ZoneOverlay will last indefinitely
+
+        * TIMER: the (temperature) settings in the ZoneOverlay will last for a fixed number of seconds, 
+        starting at the moment the ZoneOverlay was set (requires setting durationInSeconds as well)
+
+        * TADO_MODE: the (temperature) settings in the ZoneOverlay will last until the next
+        time block in the active timetable starts
+
+    ZoneOverlayTerminationTypeSkillBasedApp:
+      type: string
+      description: >
+        When setting a ZoneOverlay this value is used to specify until when the ZoneOverlay should be active.
+
+
+        Compared to ZoneOverlayTerminationType it contains NEXT_TIME_BLOCK as an extra value.
+
+
+        Value descriptions:
+
+        * MANUAL: the (temperature) settings in the ZoneOverlay will last indefinitely
+
+        * TIMER: the (temperature) settings in the ZoneOverlay will last for a fixed number of seconds, 
+        starting at the moment the ZoneOverlay was set (requires setting durationInSeconds as well)
+
+        * TADO_MODE and NEXT_TIME_BLOCK: the (temperature) settings in the ZoneOverlay will last until the next
+        time block in the active timetable starts
+
+
+        NEXT_TIME_BLOCK could be a deprecated value. The app features which allow a user to set an ZoneOverlay
+        (or a DefaultZoneOverlay) only offer options that translate into MANUAL, TIMER or TADO_MODE.
+      enum: [ MANUAL, TADO_MODE, TIMER, NEXT_TIME_BLOCK ]
+      example: MANUAL
+
+    ZoneOverlayType:
+      type: string
+      example: MANUAL
+      description: Type of a ZoneOverlay. Only known value is MANUAL, but not entirely sure, so no enum
+
+    ZoneSetting:
+      type: object
+      description: >
+        (temperature) settings for a zone which is used in scheduled TimeTableBlocks, 
+        in ZoneOverlays (manual override for the scheduled setting),
+        and in AwayConfiguration (settings to be used when the home is in AWAY mode).
+        
+        
+        The applicable properties depend on the zone type and the zone capabilities.
+      allOf:
+        - $ref: '#/components/schemas/AirConditioningZoneSettingsBase'
+        - properties:
+            type:
+              $ref: '#/components/schemas/ZoneType'
+            power:
+              $ref: '#/components/schemas/Power'
+            temperature:
+              $ref: '#/components/schemas/Temperature'
+            mode:
+              $ref: '#/components/schemas/AirConditioningMode'
+            isBoost:
+              type: boolean
+              example: true
+
+    ZoneSettingTimeSeries:
+      type: object
+      description: element of DayReport
+      properties:
+        timeSeriesType:
+          type: string
+          example: dataIntervals
+        valueType:
+          type: string
+          example: heatingSetting
+          description: |
+            known values:
+            * heatingSetting 
+            * airConditioningSetting
+        dataIntervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoneSettingDataInterval'
+
+    ZoneSettingDataInterval:
+      type: object
+      description: element of DayReport
+      allOf:
+        - $ref: '#/components/schemas/DataInterval'
+        - properties:
+            value:
+              $ref: '#/components/schemas/ZoneSetting'
+
+    ZoneState:
+      type: object
+      description: Result of /homes/{homeId}/zone/{zoneId}/state
+      properties:
+        tadoMode:
+          $ref: '#/components/schemas/HomePresence'
+        geolocationOverride:
+          type: boolean
+          example: true
+        geolocationOverrideDisableTime:
+          #          type: ???
+          nullable: true
+        preparation:
+          #          type: ???
+          nullable: true
+        setting:
+          $ref: '#/components/schemas/ZoneSetting'
+        overlayType:
+          $ref: '#/components/schemas/ZoneOverlayType'
+          nullable: true
+        overlay:
+          $ref: '#/components/schemas/ZoneOverlay'
+        openWindow:
+          $ref: '#/components/schemas/ZoneOpenWindow'
+        nextScheduleChange:
+          type: object
+          nullable: true
+          properties:
+            start:
+              type: string
+              format: date-time
+            setting:
+              $ref: '#/components/schemas/ZoneSetting'
+        nextTimeBlock:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+              example: "2024-07-31T20:00:00.000Z"
+        link:
+          type: object
+          properties:
+            state:
+              type: string
+              example: ONLINE
+              description: |
+                known values: 
+                * ONLINE
+                * OFFLINE
+            reason: # present when link.state is OFFLINE
+              type: object
+              properties:
+                code:
+                  type: string
+                  example: disconnectedDevice
+                title:
+                  type: string
+                  example: "There is a disconnected device."
+        runningOfflineSchedule:
+          type: boolean
+          example: false
+        activityDataPoints:
+          $ref: '#/components/schemas/ActivityDataPoints'
+        sensorDataPoints:
+          $ref: '#/components/schemas/SensorDataPoints'
+
+    ZoneStates:
+      type: object
+      description: Result of /homes/{homeId}/zoneStates. Basically a map with a zoneID as key and ZoneState as value.
+      properties:
+        zoneStates:
+          description: a dictionary with zone IDs (a.k.a. room IDs) as keys
+          additionalProperties:
+            $ref: '#/components/schemas/ZoneState'
+
+    ZoneType:
+      type: string
+      enum: [AIR_CONDITIONING, HEATING, HOT_WATER]
+      example: HEATING
+
+tags:
+  - name: user
+    description: >
+      Retrieve information about the authenticated user, or other users who have access to a home(s). **[ &check; tado X]**
+  - name: home
+    description: >
+      List and configure information about a home (a house or apartment) controlled by tado. **[ &check; tado X]**
+  - name: home by bridge
+    description: >
+      Configuration of your home's boiler. These operations do not require OAuth authentication. **[ &cross; tado X]**
+  - name: home control
+    description: >
+      Operations related to determining whether someone is at home or not 
+      (which impacts a home's temperature control). **[ &check; tado X]**
+  - name: heating circuit
+    description: >
+      Operations to determine the heating circuits in your tado home
+      and control how zones (a.k.a. rooms) are associated with heating circuits. **[ ~ tado X]**
+  - name: bridge
+    description: >
+      Information about your Internet Bridge. These operations do not require OAuth authentication. **[ &cross; tado X]**
+  - name: zone
+    description: >
+      Retrieve and configure information about a zone (a.k.a. room). **[ &cross; tado X]**
+  - name: zone control
+    description: >
+      All operations directly associated with temperature control in a zone. **[ &cross; tado X]**
+  - name: device
+    description: >
+      Determine and configure the tado devices in a home or zone. **[ &cross; tado X]**
+  - name: mobile device
+    description: >
+      Retrieve information about and set settings for mobile devices linked to users 
+      which have the tado app installed to control a home. **[ &check; tado X]**
+  - name: report
+    description:
+      Data reports. **[ &check; tado X]**
+  - name: invitation
+    description:
+      Manage invitations. **[ &check; tado X]**

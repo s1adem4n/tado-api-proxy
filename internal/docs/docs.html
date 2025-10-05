@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tado API Documentation</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+
+    <script>
+      Scalar.createApiReference('#app', {
+        url: '/openapi.yml',
+        hideClientButton: true,
+        showToolbar: 'never',
+      });
+    </script>
+  </body>
+</html>

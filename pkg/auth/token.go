@@ -71,35 +71,6 @@ func (t *Token) Refresh(ctx context.Context) error {
 	return nil
 }
 
-func (t *Token) Test(ctx context.Context) error {
-	if !t.Valid() {
-		return fmt.Errorf("token is not valid")
-	}
-
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		TestURL,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+t.AccessToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("token test failed: %s", resp.Status)
-	}
-
-	return nil
-}
-
 func (t *Token) Valid() bool {
 	return t.AccessToken != "" &&
 		t.RefreshToken != "" &&

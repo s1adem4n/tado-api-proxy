@@ -40,15 +40,20 @@ func NewBrowserAuth(
 }
 
 func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
-	launchURL, err := launcher.New().
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	launcher := launcher.New().
 		Context(ctx).
-		Bin(b.chromeExecutable).
-		Launch()
+		Bin(b.chromeExecutable)
+	defer launcher.Cleanup()
+
+	launchURL, err := launcher.Launch()
 	if err != nil {
 		return nil, err
 	}
 
-	browser := rod.New().ControlURL(launchURL)
+	browser := rod.New().ControlURL(launchURL).Context(ctx)
 	defer browser.Close()
 
 	err = browser.Connect()
@@ -121,7 +126,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	}
 
 	// wait for token refresh
-	err = page.Timeout(10 * time.Second).Wait(&rod.EvalOptions{
+	err = page.Wait(&rod.EvalOptions{
 		JS: `() => {
 			const token = JSON.parse(window.localStorage.getItem("ngStorage-token"));
 			return token && token.refresh_token && new Date(token.expires_at) > new Date();

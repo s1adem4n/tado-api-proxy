@@ -42,13 +42,19 @@ func (h *Handler) Init(ctx context.Context) error {
 		return err
 	}
 
-	if !h.token.Valid() || h.token.Test(ctx) != nil {
-		log.Print("Token invalid, using browser auth")
-		h.token, err = h.browserAuth.GetToken(ctx)
+	if !h.token.Valid() {
+		log.Print("Token invalid or expired, attempting refresh")
+		err := h.token.Refresh(ctx)
 		if err != nil {
-			return err
+			log.Printf("Token refresh failed, attempting browser auth: %v", err)
+			h.token, err = h.browserAuth.GetToken(ctx)
+			if err != nil {
+				return err
+			}
 		}
-		if err := h.token.Save(h.tokenPath); err != nil {
+
+		err = h.token.Save(h.tokenPath)
+		if err != nil {
 			return err
 		}
 	}
@@ -77,6 +83,7 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 	token := h.getToken()
 
 	waitDuration := max(time.Until(token.Expiry.Add(-1*time.Minute)), 0)
+	log.Printf("Next token refresh in %v", waitDuration.Round(time.Second))
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -85,6 +92,7 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
+
 	err := token.Refresh(ctx)
 	if err != nil {
 		log.Printf("OAuth refresh failed, attempting browser auth: %v", err)
@@ -108,6 +116,7 @@ func (h *Handler) autoRefresh(ctx context.Context) {
 			if err != nil {
 				log.Printf("Token refresh failed: %v", err)
 			}
+			log.Print("Token refreshed")
 		}
 	}
 }
