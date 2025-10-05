@@ -1,14 +1,16 @@
-FROM docker.io/alpine:latest
+FROM docker.io/chromedp/headless-shell:latest
 
-RUN apk --no-cache add ca-certificates chromium
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN useradd appuser
+USER appuser
 
 ARG TARGETARCH
 COPY build/main-${TARGETARCH} /app
 
-RUN adduser -u 1000 -D appuser
-USER appuser
-
-ENV CHROME_EXECUTABLE=/usr/bin/chromium
+ENV CHROME_EXECUTABLE=/headless-shell/headless-shell
 ENV TOKEN_PATH=/config/token.json
 ENV COOKIES_PATH=/config/cookies.json
 ENV LISTEN_ADDR=:8080

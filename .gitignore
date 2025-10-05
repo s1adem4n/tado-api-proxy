@@ -1,3 +1,4 @@
 .env
 cookies.json
 token.json
+build/
