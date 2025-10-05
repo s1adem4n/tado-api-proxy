@@ -2884,14 +2884,6 @@ paths:
           $ref: '#/components/responses/NotFound404'
 
 components:
-  securitySchemes:
-    oauth2:
-      type: oauth2
-      flows:
-        password:
-          tokenUrl: https://auth.tado.com/oauth/token
-          scopes: {}
-
   responses:
     Unauthorized401:
       description: unauthorized, invalid access token
