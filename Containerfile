@@ -5,6 +5,9 @@ RUN apk --no-cache add ca-certificates chromium
 ARG TARGETARCH
 COPY build/main-${TARGETARCH} /app
 
+RUN adduser -u 1000 -D appuser
+USER appuser
+
 ENV CHROME_EXECUTABLE=/usr/bin/chromium
 ENV TOKEN_PATH=/config/token.json
 ENV COOKIES_PATH=/config/cookies.json
