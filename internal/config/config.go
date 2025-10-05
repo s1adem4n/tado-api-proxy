@@ -11,6 +11,8 @@ type Config struct {
 	Email            string `env:"EMAIL" envDefault:""`
 	Password         string `env:"PASSWORD" envDefault:""`
 	ChromeExecutable string `env:"CHROME_EXECUTABLE" envDefault:"/usr/bin/chromium"`
+	Headless         bool   `env:"HEADLESS" envDefault:"true"`
+	ClientID         string `env:"CLIENT_ID" envDefault:"af44f89e-ae86-4ebe-905f-6bf759cf6473"`
 }
 
 func New() *Config {

@@ -13,7 +13,6 @@ import (
 const (
 	TokenURL = "https://login.tado.com/oauth2/token"
 	TestURL  = "https://my.tado.com/api/v2/me"
-	ClientID = "af44f89e-ae86-4ebe-905f-6bf759cf6473"
 )
 
 type Token struct {
@@ -36,9 +35,9 @@ func NewToken(
 	}
 }
 
-func (t *Token) Refresh(ctx context.Context) error {
+func (t *Token) Refresh(ctx context.Context, clientID string) error {
 	values := url.Values{}
-	values.Add("client_id", ClientID)
+	values.Add("client_id", clientID)
 	values.Add("grant_type", "refresh_token")
 	values.Add("scope", "home.user")
 	values.Add("refresh_token", t.RefreshToken)

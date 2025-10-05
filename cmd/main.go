@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/joho/godotenv"
+
 	"github.com/s1adem4n/tado-api-proxy/internal/config"
 	"github.com/s1adem4n/tado-api-proxy/internal/docs"
 	"github.com/s1adem4n/tado-api-proxy/internal/proxy"
@@ -22,15 +23,19 @@ func main() {
 		panic(err)
 	}
 
-	authHandler := auth.NewHandler(
-		auth.NewBrowserAuth(
-			config.ChromeExecutable,
-			config.CookiesPath,
-			config.Email,
-			config.Password,
-		),
-		config.TokenPath,
-	)
+	browserAuth := auth.NewBrowserAuth(&auth.BrowserAuthConfig{
+		ChromeExecutable: config.ChromeExecutable,
+		Headless:         config.Headless,
+		CookiesPath:      config.CookiesPath,
+		ClientID:         config.ClientID,
+		Email:            config.Email,
+		Password:         config.Password,
+	})
+
+	authHandler := auth.NewHandler(browserAuth, &auth.HandlerConfig{
+		TokenPath: config.TokenPath,
+		ClientID:  config.ClientID,
+	})
 
 	log.Print("Loading token before starting server")
 	err = authHandler.Init(ctx)

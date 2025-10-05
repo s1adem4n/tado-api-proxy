@@ -23,14 +23,16 @@ curl http://localhost:8080/api/v2/me
 You can also access the API documentation at `http://localhost:8080/docs`.
 
 ## Configuration
-| Environment Variable | Description                        | Default             |
-| -------------------- | ---------------------------------- | ------------------- |
-| LISTEN_ADDR          | Address to listen on               | `:8080`             |
-| TOKEN_PATH           | Path to token file                 | `token.json`        |
-| COOKIES_PATH         | Path to cookies file               | `cookies.json`      |
-| EMAIL                | tado email address                 | *required*          |
-| PASSWORD             | tado password                      | *required*          |
-| CHROME_EXECUTABLE    | Path to Chrome/Chromium executable | `/usr/bin/chromium` |
+| Environment Variable | Description                        | Default                                |
+| -------------------- | ---------------------------------- | -------------------------------------- |
+| LISTEN_ADDR          | Address to listen on               | `:8080`                                |
+| TOKEN_PATH           | Path to token file                 | `token.json`                           |
+| COOKIES_PATH         | Path to cookies file               | `cookies.json`                         |
+| EMAIL                | tado email address                 | *required*                             |
+| PASSWORD             | tado password                      | *required*                             |
+| CHROME_EXECUTABLE    | Path to Chrome/Chromium executable | `/usr/bin/chromium`                    |
+| HEADLESS             | Run browser in headless mode       | `true`                                 |
+| CLIENT_ID            | OAuth2 client ID                   | `af44f89e-ae86-4ebe-905f-6bf759cf6473` |
 
 
 ## How it works

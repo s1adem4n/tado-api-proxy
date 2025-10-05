@@ -9,21 +9,26 @@ import (
 	"time"
 )
 
+type HandlerConfig struct {
+	TokenPath string
+	ClientID  string
+}
+
 type Handler struct {
 	browserAuth *BrowserAuth
-	tokenPath   string
+	config      *HandlerConfig
 	token       *Token
 	lock        sync.RWMutex
 	ctx         context.Context
 	cancel      context.CancelFunc
 }
 
-func NewHandler(browserAuth *BrowserAuth, tokenPath string) *Handler {
+func NewHandler(browserAuth *BrowserAuth, config *HandlerConfig) *Handler {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Handler{
 		browserAuth: browserAuth,
-		tokenPath:   tokenPath,
+		config:      config,
 		token:       &Token{},
 		lock:        sync.RWMutex{},
 		ctx:         ctx,
@@ -35,7 +40,7 @@ func (h *Handler) Init(ctx context.Context) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	err := h.token.Load(h.tokenPath)
+	err := h.token.Load(h.config.TokenPath)
 	if os.IsNotExist(err) {
 		h.token = &Token{}
 	} else if err != nil {
@@ -44,16 +49,16 @@ func (h *Handler) Init(ctx context.Context) error {
 
 	if !h.token.Valid() {
 		log.Print("Token invalid or expired, attempting refresh")
-		err := h.token.Refresh(ctx)
+		err := h.token.Refresh(ctx, h.config.ClientID)
 		if err != nil {
-			log.Printf("Token refresh failed, attempting browser auth: %v", err)
+			log.Print("Token refresh failed, attempting browser auth")
 			h.token, err = h.browserAuth.GetToken(ctx)
 			if err != nil {
 				return err
 			}
 		}
 
-		err = h.token.Save(h.tokenPath)
+		err = h.token.Save(h.config.TokenPath)
 		if err != nil {
 			return err
 		}
@@ -93,9 +98,9 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	err := token.Refresh(ctx)
+	err := token.Refresh(ctx, h.config.ClientID)
 	if err != nil {
-		log.Printf("OAuth refresh failed, attempting browser auth: %v", err)
+		log.Printf("OAuth refresh failed, attempting browser auth")
 		token, err = h.browserAuth.GetToken(ctx)
 		if err != nil {
 			return err
@@ -103,7 +108,7 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 	}
 	h.token = token
 
-	return token.Save(h.tokenPath)
+	return token.Save(h.config.TokenPath)
 }
 
 func (h *Handler) autoRefresh(ctx context.Context) {

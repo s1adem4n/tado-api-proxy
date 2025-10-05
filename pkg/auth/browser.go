@@ -18,24 +18,22 @@ const (
 	LoginURL = "https://login.tado.com"
 )
 
-type BrowserAuth struct {
-	chromeExecutable string
-	cookiesPath      string
-	email            string
-	password         string
+type BrowserAuthConfig struct {
+	ChromeExecutable string
+	Headless         bool
+	CookiesPath      string
+	ClientID         string
+	Email            string
+	Password         string
 }
 
-func NewBrowserAuth(
-	chromeExecutable,
-	cookiesPath,
-	email,
-	password string,
-) *BrowserAuth {
+type BrowserAuth struct {
+	config *BrowserAuthConfig
+}
+
+func NewBrowserAuth(config *BrowserAuthConfig) *BrowserAuth {
 	return &BrowserAuth{
-		chromeExecutable: chromeExecutable,
-		cookiesPath:      cookiesPath,
-		email:            email,
-		password:         password,
+		config: config,
 	}
 }
 
@@ -45,7 +43,8 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 
 	launcher := launcher.New().
 		Context(ctx).
-		Bin(b.chromeExecutable)
+		Bin(b.config.ChromeExecutable).
+		Headless(b.config.Headless)
 	defer launcher.Cleanup()
 
 	launchURL, err := launcher.Launch()
@@ -79,7 +78,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		return nil, err
 	}
 
-	time.Sleep(5 * time.Second) // Wait for potential redirects
+	time.Sleep(5 * time.Second)
 
 	info, err := page.Info()
 	if err != nil {
@@ -91,7 +90,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = emailInput.Input(b.email)
+		err = emailInput.Input(b.config.Email)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +99,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = passwordInput.Input(b.password)
+		err = passwordInput.Input(b.config.Password)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +146,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	refreshToken := refreshTokenObj.Value.Str()
 
 	token := NewToken("", refreshToken, 0)
-	err = token.Refresh(ctx)
+	err = token.Refresh(ctx, b.config.ClientID)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +155,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 }
 
 func (b *BrowserAuth) loadCookies() ([]*proto.NetworkCookieParam, error) {
-	file, err := os.Open(b.cookiesPath)
+	file, err := os.Open(b.config.CookiesPath)
 	if os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
@@ -174,7 +173,7 @@ func (b *BrowserAuth) loadCookies() ([]*proto.NetworkCookieParam, error) {
 }
 
 func (b *BrowserAuth) saveCookies(cookies []*proto.NetworkCookie) error {
-	file, err := os.Create(b.cookiesPath)
+	file, err := os.Create(b.config.CookiesPath)
 	if err != nil {
 		return err
 	}
