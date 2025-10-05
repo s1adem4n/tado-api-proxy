@@ -83,6 +83,8 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 	case <-time.After(waitDuration):
 	}
 
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	err := token.Refresh(ctx)
 	if err != nil {
 		log.Printf("OAuth refresh failed, attempting browser auth: %v", err)
@@ -91,7 +93,7 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 			return err
 		}
 	}
-	h.setToken(token)
+	h.token = token
 
 	return token.Save(h.tokenPath)
 }
@@ -114,9 +116,4 @@ func (h *Handler) getToken() *Token {
 	h.lock.RLock()
 	defer h.lock.RUnlock()
 	return h.token
-}
-func (h *Handler) setToken(t *Token) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-	h.token = t
 }
