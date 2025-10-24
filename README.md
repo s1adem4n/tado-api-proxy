@@ -36,11 +36,25 @@ You can also access the API documentation at `http://localhost:8080/docs`.
 
 
 ## How it works
-The proxy server uses a headless Chromium browser to log in, and then extracts the OAuth2 token from the browser's local storage.
-It then uses this token to authenticate all requests to tado's API.
-The token is automatically refreshed using a standard OAuth2 refresh token flow, without needing to run the browser again.
-However, the token can be refreshed only a limited number of times, and after about 2-3 days, the browser needs to be run again to get a new token. 
-This is done automatically by the proxy server when it detects that the token has expired and cannot be refreshed anymore.
+```mermaid
+flowchart TD
+    A[Proxy Server starts] --> B[Launch Headless Chrome]
+    B --> C[Log in to Tado]
+    C --> D[Extract OAuth2 Token from Browser Storage]
+    D --> E[Store Token & Refresh Token]
+    E --> F[Use Token for API Requests]
+    
+    F --> G{Token Expired?}
+    G -->|No| F
+    G -->|Yes| H{Can Refresh?}
+    
+    H -->|Yes| I[Use Refresh Token]
+    I --> J[Get New Token]
+    J --> F
+    
+    H -->|No - After 2-3 days| K[Token Refresh Limit Reached]
+    K --> B
+```
 
 ## Acknowledgements
 - [kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2) - Community managed OpenAPI specification for the tado API
