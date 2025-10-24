@@ -4,7 +4,8 @@ A proxy server to bypass tado's new rate limits on their public API. It uses the
 ## Usage
 > [!IMPORTANT]
 > Make sure to create the `/path/to/data` directory on your host machine with proper permissions so that the container can read and write files in it. The folder should be writable by user `1000:1000`.
-> If you get this error: "open /config/cookies.json: permission denied", try running: `sudo chown -R 1000:1000 /path/to/data`, replacing `/path/to/data` with your actual path.
+>
+> If you get `open /config/cookies.json: permission denied`, try running: `sudo chown -R 1000:1000 /path/to/data`, replacing `/path/to/data` with your actual path.
 
 Run the container with your credentials:
 ```sh
