@@ -2,11 +2,15 @@
 A proxy server to bypass tado's new rate limits on their public API. It uses their browser OAuth2 client to authenticate requests, which has much higher rate limits.
 
 ## Usage
+> [!IMPORTANT]
+> Make sure to create the `/path/to/data` directory on your host machine with proper permissions so that the container can read and write files in it. The folder should be writable by user `1000:1000`.
+> If you get this error: "open /config/cookies.json: permission denied", try running: `sudo chown -R 1000:1000 /path/to/data`, replacing `/path/to/data` with your actual path.
+
 Run the container with your credentials:
 ```sh
 docker run -d \
   -p 8080:8080 \
-  -v /path/to/config:/config \
+  -v /path/to/data:/config \
   --restart unless-stopped \
   -e EMAIL=you@email.com \
   -e PASSWORD=yourpassword \
