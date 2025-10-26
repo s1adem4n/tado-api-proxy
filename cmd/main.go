@@ -20,7 +20,7 @@ func main() {
 
 	config, err := config.Parse()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	browserAuth := auth.NewBrowserAuth(&auth.BrowserAuthConfig{
@@ -40,7 +40,7 @@ func main() {
 	log.Print("Loading token before starting server")
 	err = authHandler.Init(ctx)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to initialize auth handler: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -50,6 +50,6 @@ func main() {
 	log.Printf("Starting server on %s", config.ListenAddr)
 	err = http.ListenAndServe(config.ListenAddr, mux)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
