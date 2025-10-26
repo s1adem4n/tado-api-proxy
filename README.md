@@ -1,6 +1,13 @@
 # tado API Proxy
 A proxy server that bypasses tado's API rate limits by using their browser OAuth2 client for authentication. This approach provides significantly higher rate limits compared to the standard public API.
 
+## Disclaimer
+Besides owning a tado system, I have no connection with the tado company themselves. 
+`tado-api-proxy` was created for my own use, and for others who may wish to experiment with personal Internet of Things systems. 
+I have no business interest with tado. 
+This software is provided without warranty, according to the MIT license.
+This software was made for purely education purposes, and should not be used with bad intentions.
+
 ## Installation
 ### Docker
 Create a data directory with proper permissions:
@@ -101,3 +108,4 @@ The proxy launches a headless Chrome instance to authenticate with tado using yo
 - [kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2) - Community OpenAPI specification
 - [go-rod/rod](https://github.com/go-rod/rod) - Browser automation library
 - [scalar/scalar](https://github.com/scalar/scalar) - API documentation viewer
+- [wmalgadey/PyTado](https://github.com/wmalgadey/PyTado) - Disclaimer inspiration :P
