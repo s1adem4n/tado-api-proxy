@@ -1,13 +1,15 @@
 # tado API Proxy
-A proxy server to bypass tado's new rate limits on their public API. It uses their browser OAuth2 client to authenticate requests, which has much higher rate limits.
+A proxy server that bypasses tado's API rate limits by using their browser OAuth2 client for authentication. This approach provides significantly higher rate limits compared to the standard public API.
 
-## Usage
-> [!IMPORTANT]
-> Make sure to create the `/path/to/data` directory on your host machine with proper permissions so that the container can read and write files in it. The folder should be writable by user `1000:1000`.
->
-> If you get `open /config/cookies.json: permission denied`, try running: `sudo chown -R 1000:1000 /path/to/data`, replacing `/path/to/data` with your actual path.
+## Installation
+### Docker
+Create a data directory with proper permissions:
+```sh
+mkdir -p /path/to/data
+sudo chown -R 1000:1000 /path/to/data
+```
 
-Run the container with your credentials:
+Run the container:
 ```sh
 docker run -d \
   -p 8080:8080 \
@@ -18,50 +20,84 @@ docker run -d \
   ghcr.io/s1adem4n/tado-api-proxy:latest
 ```
 
-Then access the API like you would normally do, except replacing `https://my.tado.com` with `http://localhost:8080`.
+If you encounter file permission errors, ensure the data directory is writable by user `1000:1000`.
+
+
+### Binary
+Download the latest release from the [releases page](https://github.com/s1adem4n/tado-api-proxy/releases).
+
+Set your credentials and run:
+```sh
+export EMAIL=you@email.com
+export PASSWORD=yourpassword
+./tado-api-proxy
+```
+
+
+### From Source
+Requires Go 1.25 or later.
+
+```sh
+git clone https://github.com/s1adem4n/tado-api-proxy.git
+cd tado-api-proxy
+export EMAIL=you@email.com
+export PASSWORD=yourpassword
+go run cmd/main.go
+```
+
+
+## Usage
+Replace `https://my.tado.com` with `http://localhost:8080` in your API calls.
 
 For example, to get your profile:
 ```sh
 curl http://localhost:8080/api/v2/me
 ```
 
-You can also access the API documentation at `http://localhost:8080/docs`.
+API documentation is available at `http://localhost:8080/docs`.
+
+
+### Integration with Home Assistant
+Currently, there is no simple way to change the API base URL in the official tado integration. However, you can edit the integration code to replace the base URL with your proxy's URL.
+
+To do this, locate the `PyTado` package files. 
+For Docker they are at `/usr/local/lib/python3.13/site-packages/PyTado/http.py`.
+Change the row `MY_API = "http://my.tado.com/api/v2/"` to `MY_API = "http://localhost:8080/api/v2/"` (or your proxy URL). Restart Home Assistant and it should now use the proxy for API calls.
+
+Another problem is that the `PyTado` library depends on the `device_code` OAuth2 flow, which is not supported by the proxy (as it automatically handles the authentication). Heavy modifications to the integration code may be required to bypass this, but users [have reported success](https://community.home-assistant.io/t/tado-rate-limiting-api-calls/928751/41) with only doing the above change.
+
+Please see this [Home Assistant community thread](https://community.home-assistant.io/t/tado-rate-limiting-api-calls/928751) for more details.
+
+PRs to add more info about Home Assistant integration are very welcome!
+
+
+### Integration with Homebridge
+The Homebridge plugin supports changing the API base URL. Just point it to your proxy instance and it should *just work*™.
+
+For more details about setting it up, see these comments:
+- [Changing the base URL](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3419839118)
+- [Details about running with Docker/Systemd](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3421497695)
+
 
 ## Configuration
-| Environment Variable | Description                        | Default                                |
-| -------------------- | ---------------------------------- | -------------------------------------- |
-| LISTEN_ADDR          | Address to listen on               | `:8080`                                |
-| TOKEN_PATH           | Path to token file                 | `token.json`                           |
-| COOKIES_PATH         | Path to cookies file               | `cookies.json`                         |
-| EMAIL                | tado email address                 | *required*                             |
-| PASSWORD             | tado password                      | *required*                             |
-| CHROME_EXECUTABLE    | Path to Chrome/Chromium executable | `/usr/bin/chromium`                    |
-| HEADLESS             | Run browser in headless mode       | `true`                                 |
-| CLIENT_ID            | OAuth2 client ID                   | `af44f89e-ae86-4ebe-905f-6bf759cf6473` |
+Currently, configuration is only possible via environment variables:
+| Variable          | Description           | Default                                |
+| ----------------- | --------------------- | -------------------------------------- |
+| LISTEN_ADDR       | Server listen address | `:8080`                                |
+| TOKEN_PATH        | Token storage file    | `token.json`                           |
+| COOKIES_PATH      | Cookies storage file  | `cookies.json`                         |
+| EMAIL             | tado account email    | *required*                             |
+| PASSWORD          | tado account password | *required*                             |
+| CHROME_EXECUTABLE | Chrome/Chromium path  | `/usr/bin/chromium`                    |
+| HEADLESS          | Run browser headless  | `true`                                 |
+| CLIENT_ID         | OAuth2 client ID      | `af44f89e-ae86-4ebe-905f-6bf759cf6473` |
 
 
-## How it works
-```mermaid
-flowchart TD
-    A[Proxy Server starts] --> B[Launch Headless Chrome]
-    B --> C[Log in to Tado]
-    C --> D[Extract OAuth2 Token from Browser Storage]
-    D --> E[Store Token & Refresh Token]
-    E --> F[Use Token for API Requests]
-    
-    F --> G{Token Expired?}
-    G -->|No| F
-    G -->|Yes| H{Can Refresh?}
-    
-    H -->|Yes| I[Use Refresh Token]
-    I --> J[Get New Token]
-    J --> F
-    
-    H -->|No - After 2-3 days| K[Token Refresh Limit Reached]
-    K --> B
-```
+## How It Works
+The proxy launches a headless Chrome instance to authenticate with tado using your credentials. It extracts the OAuth2 token from browser storage and uses it to authenticate API requests. When tokens expire, the refresh token is used to obtain new ones. After 2-3 days when refresh tokens expire, the browser authentication process repeats automatically.
 
-## Acknowledgements
-- [kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2) - Community managed OpenAPI specification for the tado API
-- [go-rod/rod](https://github.com/go-rod/rod) - Go library for browser automation
+
+## Credits
+- [kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2) - Community OpenAPI specification
+- [go-rod/rod](https://github.com/go-rod/rod) - Browser automation library
 - [scalar/scalar](https://github.com/scalar/scalar) - API documentation viewer
