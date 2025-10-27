@@ -44,7 +44,7 @@ func (h *Handler) Init(ctx context.Context) error {
 	if os.IsNotExist(err) {
 		h.token = &Token{}
 	} else if err != nil {
-		return err
+		log.Printf("Warning: your token file seems to be invalid, it will be recreated")
 	}
 
 	if !h.token.Valid() {

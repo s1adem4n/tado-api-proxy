@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -159,7 +160,8 @@ func (b *BrowserAuth) loadCookies() ([]*proto.NetworkCookieParam, error) {
 	if os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
-		return nil, err
+		log.Printf("Warning: your cookie file seems to be invalid, it will be recreated")
+		return nil, nil
 	}
 	defer file.Close()
 
