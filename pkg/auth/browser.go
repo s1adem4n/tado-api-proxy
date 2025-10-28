@@ -109,7 +109,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		return nil, err
 	}
 
-	b.debugLog("Landed on Page %s", info.Title)
+	b.debugLog("Landed on Page: %s", info.Title)
 
 	if strings.HasPrefix(info.URL, LoginURL) {
 		b.debugLog("Performing login")
@@ -139,10 +139,29 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		wait = page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
+
 		err = submitButton.Click(proto.InputMouseButtonLeft, 1)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	wait()
+	err = page.WaitStable(2 * time.Second)
+	if err != nil {
+		b.debugLog("Failed to wait for stable page after login: %s", err)
+	}
+
+	info, err = page.Info()
+	if err != nil {
+		return nil, err
+	}
+	b.debugLog("Post-login Page: %s", info.Title)
+
+	if strings.HasPrefix(info.URL, LoginURL) {
+		log.Printf("WARNING: still on login page after submitting login form. If issues arise, please double-check your credentials!")
 	}
 
 	newCookies, err := browser.GetCookies()
