@@ -26,6 +26,7 @@ type BrowserAuthConfig struct {
 	ClientID         string
 	Email            string
 	Password         string
+	Timeout          time.Duration
 }
 
 type BrowserAuth struct {
@@ -39,7 +40,7 @@ func NewBrowserAuth(config *BrowserAuthConfig) *BrowserAuth {
 }
 
 func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, b.config.Timeout)
 	defer cancel()
 
 	launcher := launcher.New().
@@ -167,7 +168,7 @@ func (b *BrowserAuth) loadCookies() ([]*proto.NetworkCookieParam, error) {
 	var cookies []*proto.NetworkCookieParam
 	err = json.NewDecoder(file).Decode(&cookies)
 	if err != nil {
-		log.Printf("Warning: your cookie file seems to be invalid, it will be recreated")
+		log.Printf("INFO: cookie file seems to be invalid, it will be recreated")
 		return nil, nil
 	}
 

@@ -96,6 +96,7 @@ Currently, configuration is only possible via environment variables:
 | EMAIL             | tado account email    | *required*                             |
 | PASSWORD          | tado account password | *required*                             |
 | CHROME_EXECUTABLE | Chrome/Chromium path  | `/usr/bin/chromium`                    |
+| BROWSER_TIMEOUT   | Browser auth timeout  | `5m` (5 minutes)                       |
 | HEADLESS          | Run browser headless  | `true`                                 |
 | CLIENT_ID         | OAuth2 client ID      | `af44f89e-ae86-4ebe-905f-6bf759cf6473` |
 

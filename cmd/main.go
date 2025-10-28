@@ -30,6 +30,7 @@ func main() {
 		ClientID:         config.ClientID,
 		Email:            config.Email,
 		Password:         config.Password,
+		Timeout:          config.BrowserTimeout,
 	})
 
 	authHandler := auth.NewHandler(browserAuth, &auth.HandlerConfig{
