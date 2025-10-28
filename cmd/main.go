@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 
@@ -42,6 +43,9 @@ func main() {
 	log.Print("Loading token before starting server")
 	err = authHandler.Init(ctx)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Fatalf("Browser authentication timed out during initialization, please try increasing the BROWSER_TIMEOUT, or enable DEBUG mode to investigate further")
+		}
 		log.Fatalf("Failed to initialize auth handler: %v", err)
 	}
 

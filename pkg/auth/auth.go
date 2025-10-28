@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -55,11 +54,7 @@ func (h *Handler) Init(ctx context.Context) error {
 			log.Print("Token refresh failed, attempting browser auth")
 			h.token, err = h.browserAuth.GetToken(ctx)
 			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					return fmt.Errorf("browser authentication timed out after %v", h.browserAuth.config.Timeout)
-				} else {
-					return err
-				}
+				return err
 			}
 		}
 
