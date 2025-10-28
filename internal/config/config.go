@@ -20,6 +20,7 @@ type Config struct {
 	BrowserTimeout   time.Duration `env:"BROWSER_TIMEOUT" envDefault:"5m"`
 	Headless         bool          `env:"HEADLESS" envDefault:"true"`
 	ClientID         string        `env:"CLIENT_ID" envDefault:"af44f89e-ae86-4ebe-905f-6bf759cf6473"`
+	Debug            bool          `env:"DEBUG" envDefault:"false"`
 }
 
 func New() *Config {

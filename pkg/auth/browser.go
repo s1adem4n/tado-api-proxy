@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -27,6 +28,7 @@ type BrowserAuthConfig struct {
 	Email            string
 	Password         string
 	Timeout          time.Duration
+	Debug            bool
 }
 
 type BrowserAuth struct {
@@ -39,6 +41,13 @@ func NewBrowserAuth(config *BrowserAuthConfig) *BrowserAuth {
 	}
 }
 
+func (b *BrowserAuth) debugLog(msg string, args ...interface{}) {
+	if b.config.Debug {
+		formatted := fmt.Sprintf(msg, args...)
+		log.Printf("BROWSER DEBUG: %s", formatted)
+	}
+}
+
 func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	ctx, cancel := context.WithTimeout(ctx, b.config.Timeout)
 	defer cancel()
@@ -48,6 +57,8 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		Bin(b.config.ChromeExecutable).
 		Headless(b.config.Headless)
 	defer launcher.Cleanup()
+
+	b.debugLog("Launching browser")
 
 	launchURL, err := launcher.Launch()
 	if err != nil {
@@ -75,19 +86,34 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	b.debugLog("Navigating to %s", AppURL)
+
+	wait := page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
 	err = page.Navigate(AppURL)
 	if err != nil {
 		return nil, err
 	}
+	wait()
 
-	time.Sleep(5 * time.Second)
+	err = page.WaitLoad()
+	if err != nil {
+		return nil, err
+	}
+
+	time.Sleep(5 * time.Second) // wait for possible extra redirects
 
 	info, err := page.Info()
 	if err != nil {
 		return nil, err
 	}
 
+	b.debugLog("Landed on Page %s", info.Title)
+
 	if strings.HasPrefix(info.URL, LoginURL) {
+		b.debugLog("Performing login")
+
+		b.debugLog("Filling in email")
 		emailInput, err := page.Element("#loginId")
 		if err != nil {
 			return nil, err
@@ -97,6 +123,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 			return nil, err
 		}
 
+		b.debugLog("Filling in password")
 		passwordInput, err := page.Element("#password")
 		if err != nil {
 			return nil, err
@@ -106,6 +133,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 			return nil, err
 		}
 
+		b.debugLog("Submitting login form")
 		submitButton, err := page.ElementR("button", "Sign in")
 		if err != nil {
 			return nil, err
@@ -116,7 +144,6 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		}
 	}
 
-	// Save cookies after login
 	newCookies, err := browser.GetCookies()
 	if err != nil {
 		return nil, err
@@ -125,6 +152,8 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	b.debugLog("Waiting for token to be available in localStorage")
 
 	// wait for token refresh
 	err = page.Wait(&rod.EvalOptions{
@@ -146,6 +175,8 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		return nil, err
 	}
 	refreshToken := refreshTokenObj.Value.Str()
+
+	b.debugLog("Refreshing token")
 
 	token := NewToken("", refreshToken, 0)
 	err = token.Refresh(ctx, b.config.ClientID)

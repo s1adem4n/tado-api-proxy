@@ -99,7 +99,7 @@ Currently, configuration is only possible via environment variables:
 | BROWSER_TIMEOUT   | Browser auth timeout  | `5m` (5 minutes)                       |
 | HEADLESS          | Run browser headless  | `true`                                 |
 | CLIENT_ID         | OAuth2 client ID      | `af44f89e-ae86-4ebe-905f-6bf759cf6473` |
-
+| DEBUG             | Enable debug logging  | `false`                                |
 
 ## How It Works
 The proxy launches a headless Chrome instance to authenticate with tado using your credentials. It extracts the OAuth2 token from browser storage and uses it to authenticate API requests. When tokens expire, the refresh token is used to obtain new ones. After 2-3 days when refresh tokens expire, the browser authentication process repeats automatically.
