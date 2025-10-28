@@ -160,15 +160,15 @@ func (b *BrowserAuth) loadCookies() ([]*proto.NetworkCookieParam, error) {
 	if os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
-		log.Printf("Warning: your cookie file seems to be invalid, it will be recreated")
-		return nil, nil
+		return nil, err
 	}
 	defer file.Close()
 
 	var cookies []*proto.NetworkCookieParam
 	err = json.NewDecoder(file).Decode(&cookies)
 	if err != nil {
-		return nil, err
+		log.Printf("Warning: your cookie file seems to be invalid, it will be recreated")
+		return nil, nil
 	}
 
 	return cookies, nil
