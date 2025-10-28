@@ -10,6 +10,8 @@ This software was made for purely education purposes, and should not be used wit
 
 ## Installation
 ### Docker
+The container includes a headless Chromium browser and sets the `CHROME_EXECUTABLE` environment variable automatically.
+
 Create a data directory with proper permissions:
 ```sh
 mkdir -p /path/to/data

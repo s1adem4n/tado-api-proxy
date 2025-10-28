@@ -89,19 +89,20 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 
 	b.debugLog("Navigating to %s", AppURL)
 
+	// see https://github.com/go-rod/rod/issues/640
 	wait := page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
+
 	err = page.Navigate(AppURL)
 	if err != nil {
 		return nil, err
 	}
 	wait()
 
-	err = page.WaitLoad()
+	time.Sleep(5 * time.Second)
+	err = page.WaitStable(2 * time.Second)
 	if err != nil {
-		return nil, err
+		b.debugLog("Failed to wait for stable page: %s", err)
 	}
-
-	time.Sleep(5 * time.Second) // wait for possible extra redirects
 
 	info, err := page.Info()
 	if err != nil {
