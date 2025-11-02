@@ -140,15 +140,16 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 			return nil, err
 		}
 
-		wait = page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
+		wait := page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
 
 		err = submitButton.Click(proto.InputMouseButtonLeft, 1)
 		if err != nil {
 			return nil, err
 		}
+
+		wait()
 	}
 
-	wait()
 	err = page.WaitStable(2 * time.Second)
 	if err != nil {
 		b.debugLog("Failed to wait for stable page after login: %s", err)
