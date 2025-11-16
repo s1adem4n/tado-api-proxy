@@ -29,10 +29,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	targetURL := BaseURL + r.URL.Path
+	if r.URL.RawQuery != "" {
+		targetURL += "?" + r.URL.RawQuery
+	}
+
 	req, err := http.NewRequestWithContext(
 		r.Context(),
 		r.Method,
-		BaseURL+r.URL.Path+"?"+r.URL.RawQuery,
+		targetURL,
 		r.Body,
 	)
 	if err != nil {
