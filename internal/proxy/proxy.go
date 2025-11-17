@@ -1,8 +1,6 @@
 package proxy
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"maps"
 	"net/http"
@@ -36,13 +34,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		url += "?" + r.URL.RawQuery
 	}
 
-	bodyCopy, _ := io.ReadAll(r.Body)
-
 	req, err := http.NewRequestWithContext(
 		r.Context(),
 		r.Method,
 		url,
-		bytes.NewReader(bodyCopy),
+		r.Body,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -57,27 +53,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-
-	respBodyCopy, _ := io.ReadAll(resp.Body)
-	resp.Body = io.NopCloser(bytes.NewReader(respBodyCopy))
-
-	fmt.Printf("----REQUEST %s----\n", req.URL.Path)
-	for k, v := range req.Header {
-		fmt.Printf("%s: %s\n", k, v)
-	}
-
-	fmt.Println()
-	fmt.Printf("----RESPONSE %s----\n", req.URL.Path)
-	for k, v := range resp.Header {
-		fmt.Printf("%s: %s\n", k, v)
-	}
-	fmt.Printf("Status Code: %d\n", resp.StatusCode)
-	fmt.Println("Body:")
-	fmt.Println(string(respBodyCopy))
-	fmt.Println("Request Body:")
-	fmt.Println(string(bodyCopy))
-	fmt.Println("---------------")
-	fmt.Println()
 
 	maps.Copy(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
