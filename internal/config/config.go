@@ -11,16 +11,21 @@ import (
 )
 
 type Config struct {
-	ListenAddr       string        `env:"LISTEN_ADDR" envDefault:":8080"`
-	TokenPath        string        `env:"TOKEN_PATH" envDefault:"token.json"`
-	CookiesPath      string        `env:"COOKIES_PATH" envDefault:"cookies.json"`
-	Email            string        `env:"EMAIL"`
-	Password         string        `env:"PASSWORD"`
+	ListenAddr  string `env:"LISTEN_ADDR" envDefault:":8080"`
+	TokenPath   string `env:"TOKEN_PATH" envDefault:"token.json"`
+	CookiesPath string `env:"COOKIES_PATH" envDefault:"cookies.json"`
+	Email       string `env:"EMAIL"`
+	Password    string `env:"PASSWORD"`
+	AuthMethod  string `env:"AUTH_METHOD" envDefault:"browser"`
+
 	ChromeExecutable string        `env:"CHROME_EXECUTABLE" envDefault:"/usr/bin/chromium"`
 	BrowserTimeout   time.Duration `env:"BROWSER_TIMEOUT" envDefault:"5m"`
 	Headless         bool          `env:"HEADLESS" envDefault:"true"`
 	ClientID         string        `env:"CLIENT_ID" envDefault:"af44f89e-ae86-4ebe-905f-6bf759cf6473"`
-	Debug            bool          `env:"DEBUG" envDefault:"false"`
+
+	Timezone string `env:"TIMEZONE" envDefault:"Europe/Berlin"`
+
+	Debug bool `env:"DEBUG" envDefault:"false"`
 }
 
 func New() *Config {
@@ -45,16 +50,24 @@ func Parse() (*Config, error) {
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
-	if err := c.validateWriteable(c.CookiesPath); err != nil {
-		return err
+	// Validate auth method
+	if c.AuthMethod != "browser" && c.AuthMethod != "mobile" {
+		return fmt.Errorf("AUTH_METHOD must be either 'browser' or 'mobile', got: %s", c.AuthMethod)
 	}
 
 	if err := c.validateWriteable(c.TokenPath); err != nil {
 		return err
 	}
 
-	if err := c.validateChromeExecutable(); err != nil {
-		return err
+	// Only validate Chrome and cookies if using browser auth
+	if c.AuthMethod == "browser" {
+		if err := c.validateWriteable(c.CookiesPath); err != nil {
+			return err
+		}
+
+		if err := c.validateChromeExecutable(); err != nil {
+			return err
+		}
 	}
 
 	return nil

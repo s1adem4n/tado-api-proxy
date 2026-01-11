@@ -1,6 +1,6 @@
 module github.com/s1adem4n/tado-api-proxy
 
-go 1.25.1
+go 1.25.5
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1

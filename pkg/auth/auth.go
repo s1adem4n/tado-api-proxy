@@ -9,30 +9,37 @@ import (
 	"time"
 )
 
+// AuthProvider is the interface that both BrowserAuth and MobileAuth implement
+// It provides a unified way to obtain OAuth tokens regardless of the authentication method
+type AuthProvider interface {
+	// GetToken obtains a new token using the provider's authentication method
+	GetToken(ctx context.Context) (*Token, error)
+}
+
 type HandlerConfig struct {
 	TokenPath string
 	ClientID  string
 }
 
 type Handler struct {
-	browserAuth *BrowserAuth
-	config      *HandlerConfig
-	token       *Token
-	lock        sync.RWMutex
-	ctx         context.Context
-	cancel      context.CancelFunc
+	authProvider AuthProvider
+	config       *HandlerConfig
+	token        *Token
+	lock         sync.RWMutex
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 
-func NewHandler(browserAuth *BrowserAuth, config *HandlerConfig) *Handler {
+func NewHandler(authProvider AuthProvider, config *HandlerConfig) *Handler {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Handler{
-		browserAuth: browserAuth,
-		config:      config,
-		token:       &Token{},
-		lock:        sync.RWMutex{},
-		ctx:         ctx,
-		cancel:      cancel,
+		authProvider: authProvider,
+		config:       config,
+		token:        &Token{},
+		lock:         sync.RWMutex{},
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 }
 
@@ -51,8 +58,8 @@ func (h *Handler) Init(ctx context.Context) error {
 		log.Print("Token invalid or expired, attempting refresh")
 		err := h.token.Refresh(ctx, h.config.ClientID)
 		if err != nil {
-			log.Print("Token refresh failed, attempting browser auth")
-			h.token, err = h.browserAuth.GetToken(ctx)
+			log.Print("Token refresh failed, attempting authentication with provider")
+			h.token, err = h.authProvider.GetToken(ctx)
 			if err != nil {
 				return err
 			}
@@ -100,8 +107,8 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 
 	err := token.Refresh(ctx, h.config.ClientID)
 	if err != nil {
-		log.Printf("OAuth refresh failed, attempting browser auth")
-		token, err = h.browserAuth.GetToken(ctx)
+		log.Printf("OAuth refresh failed, attempting authentication with provider")
+		token, err = h.authProvider.GetToken(ctx)
 		if err != nil {
 			return err
 		}
