@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/s1adem4n/tado-api-proxy/internal/stats"
@@ -39,7 +40,9 @@ func NewHandler(authHandler *auth.Handler, statsTracker *stats.Tracker) *Handler
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	h.statsTracker.Record()
+	if strings.HasPrefix(r.URL.Path, "/api") {
+		h.statsTracker.Record()
+	}
 
 	lrw := &loggingResponseWriter{w, http.StatusOK}
 	defer func() {
