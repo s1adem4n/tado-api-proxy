@@ -93,7 +93,7 @@ curl http://localhost:8080/api/v2/me
 API documentation is available at `http://localhost:8080/docs`.
 
 ### Statistics
-The proxy tracks request volume to help you monitor usage. You can view these statistics at `http://localhost:8080/stats`.
+The proxy tracks request volume to help you monitor usage. You can view these statistics at `http://localhost:8080/stats`. The statistics are stored in-memory and are cleared upon a restart of the proxy.
 
 Example response:
 ```json
