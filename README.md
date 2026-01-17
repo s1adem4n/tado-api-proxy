@@ -92,6 +92,18 @@ curl http://localhost:8080/api/v2/me
 
 API documentation is available at `http://localhost:8080/docs`.
 
+### Statistics
+The proxy tracks request volume to help you monitor usage. You can view these statistics at `http://localhost:8080/stats`.
+
+Example response:
+```json
+{
+  "today": 42,
+  "last_hour": 5,
+  "last_24_hours": 120
+}
+```
+
 
 ### Integration with Home Assistant
 Currently, there is no simple way to change the API base URL in the official tado integration. However, you can edit the integration code to replace the base URL with your proxy's URL.

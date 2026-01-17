@@ -11,6 +11,7 @@ import (
 	"github.com/s1adem4n/tado-api-proxy/internal/config"
 	"github.com/s1adem4n/tado-api-proxy/internal/docs"
 	"github.com/s1adem4n/tado-api-proxy/internal/proxy"
+	"github.com/s1adem4n/tado-api-proxy/internal/stats"
 	"github.com/s1adem4n/tado-api-proxy/pkg/auth"
 )
 
@@ -63,9 +64,12 @@ func main() {
 		log.Fatalf("Failed to initialize auth handler: %v", err)
 	}
 
+	statsTracker := stats.NewTracker(ctx)
+
 	mux := http.NewServeMux()
+	mux.Handle("/stats", statsTracker)
 	docs.Register(mux)
-	mux.Handle("/", proxy.NewHandler(authHandler))
+	mux.Handle("/", proxy.NewHandler(authHandler, statsTracker))
 
 	log.Printf("Starting server on %s", config.ListenAddr)
 	err = http.ListenAndServe(config.ListenAddr, mux)

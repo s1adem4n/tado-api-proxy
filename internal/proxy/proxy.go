@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net/http"
 
+	"github.com/s1adem4n/tado-api-proxy/internal/stats"
 	"github.com/s1adem4n/tado-api-proxy/pkg/auth"
 )
 
@@ -13,16 +14,20 @@ const (
 )
 
 type Handler struct {
-	authHandler *auth.Handler
+	authHandler  *auth.Handler
+	statsTracker *stats.Tracker
 }
 
-func NewHandler(authHandler *auth.Handler) *Handler {
+func NewHandler(authHandler *auth.Handler, statsTracker *stats.Tracker) *Handler {
 	return &Handler{
-		authHandler: authHandler,
+		authHandler:  authHandler,
+		statsTracker: statsTracker,
 	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.statsTracker.Record()
+
 	token, err := h.authHandler.GetAccessToken()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
