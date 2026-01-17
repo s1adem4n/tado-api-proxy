@@ -142,7 +142,7 @@ Currently, configuration is only possible via environment variables:
 | HEADLESS          | Run browser headless (browser auth only)      | `true`                                 | No       |
 | TIMEZONE          | Timezone (mobile auth only)                   | `Europe/Berlin`                        | No       |
 | CLIENT_ID         | OAuth2 client ID                              | `af44f89e-ae86-4ebe-905f-6bf759cf6473` | No       |
-| DEBUG             | Enable debug logging                          | `false`                                | No       |
+| LOG_LEVEL         | Log level (`debug`, `info`, `warn`, `error`)  | `info`                                 | No       |
 
 
 ## How It Works

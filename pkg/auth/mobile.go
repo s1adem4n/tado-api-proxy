@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -65,6 +66,7 @@ func NewMobileAuth(config *MobileAuthConfig) *MobileAuth {
 }
 
 func (m *MobileAuth) GetToken(ctx context.Context) (*Token, error) {
+	slog.Debug("starting mobile auth flow")
 	verifier, challenge, err := GeneratePKCE()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate PKCE: %w", err)
@@ -77,11 +79,13 @@ func (m *MobileAuth) GetToken(ctx context.Context) (*Token, error) {
 	}
 	m.state = state
 
+	slog.Debug("performing mobile authorization")
 	authCode, err := m.authorize(ctx, m.config.Email, m.config.Password, challenge, state)
 	if err != nil {
 		return nil, fmt.Errorf("authorization failed: %w", err)
 	}
 
+	slog.Debug("exchanging code for token")
 	tokenResp, err := m.exchangeCodeForToken(ctx, authCode, verifier)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange failed: %w", err)

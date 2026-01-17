@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/joho/godotenv"
 
 	"github.com/s1adem4n/tado-api-proxy/internal/config"
 	"github.com/s1adem4n/tado-api-proxy/internal/docs"
+	"github.com/s1adem4n/tado-api-proxy/internal/logger"
 	"github.com/s1adem4n/tado-api-proxy/internal/proxy"
 	"github.com/s1adem4n/tado-api-proxy/internal/stats"
 	"github.com/s1adem4n/tado-api-proxy/pkg/auth"
@@ -22,14 +24,17 @@ func main() {
 
 	config, err := config.Parse()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
+
+	logger.Setup(config.LogLevel)
 
 	// Select auth provider based on configuration
 	var authProvider auth.AuthProvider
 	switch config.AuthMethod {
 	case "browser":
-		log.Print("Using browser authentication method")
+		slog.Info("using browser authentication method")
 		authProvider = auth.NewBrowserAuth(&auth.BrowserAuthConfig{
 			ChromeExecutable: config.ChromeExecutable,
 			Headless:         config.Headless,
@@ -38,16 +43,16 @@ func main() {
 			Email:            config.Email,
 			Password:         config.Password,
 			Timeout:          config.BrowserTimeout,
-			Debug:            config.Debug,
 		})
 	case "mobile":
-		log.Print("Using mobile authentication method")
+		slog.Info("using mobile authentication method")
 		authProvider = auth.NewMobileAuth(&auth.MobileAuthConfig{
 			Email:    config.Email,
 			Password: config.Password,
 		})
 	default:
-		log.Fatalf("Invalid auth method: %s (must be 'browser' or 'mobile')", config.AuthMethod)
+		slog.Error("invalid auth method", "method", config.AuthMethod)
+		os.Exit(1)
 	}
 
 	authHandler := auth.NewHandler(authProvider, &auth.HandlerConfig{
@@ -55,13 +60,15 @@ func main() {
 		ClientID:  config.ClientID,
 	})
 
-	log.Print("Loading token before starting server")
+	slog.Info("loading token before starting server")
 	err = authHandler.Init(ctx)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			log.Fatalf("Browser authentication timed out during initialization, please try increasing the BROWSER_TIMEOUT, or enable DEBUG mode to investigate further")
+			slog.Error("browser authentication timed out during initialization, please try increasing the BROWSER_TIMEOUT, or set LOG_LEVEL=debug to investigate further")
+			os.Exit(1)
 		}
-		log.Fatalf("Failed to initialize auth handler: %v", err)
+		slog.Error("failed to initialize auth handler", "error", err)
+		os.Exit(1)
 	}
 
 	statsTracker := stats.NewTracker(ctx)
@@ -71,9 +78,10 @@ func main() {
 	docs.Register(mux)
 	mux.Handle("/", proxy.NewHandler(authHandler, statsTracker))
 
-	log.Printf("Starting server on %s", config.ListenAddr)
+	slog.Info("starting server", "addr", config.ListenAddr)
 	err = http.ListenAndServe(config.ListenAddr, mux)
 	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

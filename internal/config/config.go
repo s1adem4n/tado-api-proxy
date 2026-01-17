@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	env "github.com/caarlos0/env/v11"
@@ -25,7 +26,8 @@ type Config struct {
 
 	Timezone string `env:"TIMEZONE" envDefault:"Europe/Berlin"`
 
-	Debug bool `env:"DEBUG" envDefault:"false"`
+	LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
+	Debug    bool   `env:"DEBUG" envDefault:"false"`
 }
 
 func New() *Config {
@@ -43,6 +45,11 @@ func Parse() (*Config, error) {
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+
+	// Backwards compatibility for debug option
+	if cfg.Debug {
+		cfg.LogLevel = "debug"
 	}
 
 	return cfg, nil
@@ -108,7 +115,7 @@ func (c *Config) validateChromeExecutable() error {
 		return fmt.Errorf("failed to execute chrome at %s: %w", c.ChromeExecutable, err)
 	}
 
-	log.Printf("Using Chrome: %s", output)
+	slog.Info("found chrome", "version", strings.TrimSpace(string(output)))
 
 	return nil
 }

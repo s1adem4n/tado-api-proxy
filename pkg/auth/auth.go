@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -51,14 +51,14 @@ func (h *Handler) Init(ctx context.Context) error {
 	if os.IsNotExist(err) {
 		h.token = &Token{}
 	} else if err != nil {
-		log.Printf("INFO: token file seems to be invalid, it will be recreated")
+		slog.Warn("token file seems to be invalid, it will be recreated", "error", err)
 	}
 
 	if !h.token.Valid() {
-		log.Print("Token invalid or expired, attempting refresh")
+		slog.Info("token invalid or expired, attempting refresh")
 		err := h.token.Refresh(ctx, h.config.ClientID)
 		if err != nil {
-			log.Print("Token refresh failed, attempting authentication with provider")
+			slog.Info("token refresh failed, attempting authentication with provider")
 			h.token, err = h.authProvider.GetToken(ctx)
 			if err != nil {
 				return err
@@ -95,7 +95,7 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 	token := h.getToken()
 
 	waitDuration := max(time.Until(token.Expiry.Add(-1*time.Minute)), 0)
-	log.Printf("Next token refresh in %v", waitDuration.Round(time.Second))
+	slog.Info("next token refresh scheduled", "in", waitDuration.Round(time.Second))
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -107,7 +107,7 @@ func (h *Handler) refreshToken(ctx context.Context) error {
 
 	err := token.Refresh(ctx, h.config.ClientID)
 	if err != nil {
-		log.Printf("OAuth refresh failed, attempting authentication with provider")
+		slog.Warn("oauth refresh failed, attempting authentication with provider")
 		token, err = h.authProvider.GetToken(ctx)
 		if err != nil {
 			return err
@@ -126,9 +126,9 @@ func (h *Handler) autoRefresh(ctx context.Context) {
 		default:
 			err := h.refreshToken(ctx)
 			if err != nil {
-				log.Printf("Token refresh failed: %v", err)
+				slog.Error("token refresh failed", "error", err)
 			}
-			log.Print("Token refreshed")
+			slog.Info("token refreshed")
 		}
 	}
 }

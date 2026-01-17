@@ -3,8 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -28,7 +27,6 @@ type BrowserAuthConfig struct {
 	Email            string
 	Password         string
 	Timeout          time.Duration
-	Debug            bool
 }
 
 type BrowserAuth struct {
@@ -38,13 +36,6 @@ type BrowserAuth struct {
 func NewBrowserAuth(config *BrowserAuthConfig) *BrowserAuth {
 	return &BrowserAuth{
 		config: config,
-	}
-}
-
-func (b *BrowserAuth) debugLog(msg string, args ...interface{}) {
-	if b.config.Debug {
-		formatted := fmt.Sprintf(msg, args...)
-		log.Printf("BROWSER DEBUG: %s", formatted)
 	}
 }
 
@@ -58,7 +49,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		Headless(b.config.Headless)
 	defer launcher.Cleanup()
 
-	b.debugLog("Launching browser")
+	slog.Debug("launching browser")
 
 	launchURL, err := launcher.Launch()
 	if err != nil {
@@ -87,7 +78,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		return nil, err
 	}
 
-	b.debugLog("Navigating to %s", AppURL)
+	slog.Debug("navigating to app", "url", AppURL)
 
 	// see https://github.com/go-rod/rod/issues/640
 	wait := page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
@@ -101,7 +92,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	time.Sleep(5 * time.Second)
 	err = page.WaitStable(2 * time.Second)
 	if err != nil {
-		b.debugLog("Failed to wait for stable page: %s", err)
+		slog.Debug("failed to wait for stable page", "error", err)
 	}
 
 	info, err := page.Info()
@@ -109,12 +100,12 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		return nil, err
 	}
 
-	b.debugLog("Landed on Page: %s", info.Title)
+	slog.Debug("landed on page", "title", info.Title)
 
 	if strings.HasPrefix(info.URL, LoginURL) {
-		b.debugLog("Performing login")
+		slog.Debug("performing login")
 
-		b.debugLog("Filling in email")
+		slog.Debug("filling in email")
 		emailInput, err := page.Element("#loginId")
 		if err != nil {
 			return nil, err
@@ -124,7 +115,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 			return nil, err
 		}
 
-		b.debugLog("Filling in password")
+		slog.Debug("filling in password")
 		passwordInput, err := page.Element("#password")
 		if err != nil {
 			return nil, err
@@ -134,7 +125,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 			return nil, err
 		}
 
-		b.debugLog("Submitting login form")
+		slog.Debug("submitting login form")
 		submitButton, err := page.ElementR("button", "Sign in")
 		if err != nil {
 			return nil, err
@@ -152,17 +143,17 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 
 	err = page.WaitStable(2 * time.Second)
 	if err != nil {
-		b.debugLog("Failed to wait for stable page after login: %s", err)
+		slog.Debug("failed to wait for stable page after login", "error", err)
 	}
 
 	info, err = page.Info()
 	if err != nil {
 		return nil, err
 	}
-	b.debugLog("Post-login Page: %s", info.Title)
+	slog.Debug("post-login page", "title", info.Title)
 
 	if strings.HasPrefix(info.URL, LoginURL) {
-		log.Printf("WARNING: still on login page after submitting login form. If issues arise, please double-check your credentials!")
+		slog.Warn("still on login page after submitting login form, please double-check your credentials")
 	}
 
 	newCookies, err := browser.GetCookies()
@@ -174,7 +165,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 		return nil, err
 	}
 
-	b.debugLog("Waiting for token to be available in localStorage")
+	slog.Debug("waiting for token to be available in localStorage")
 
 	// wait for token refresh
 	err = page.Wait(&rod.EvalOptions{
@@ -197,7 +188,7 @@ func (b *BrowserAuth) GetToken(ctx context.Context) (*Token, error) {
 	}
 	refreshToken := refreshTokenObj.Value.Str()
 
-	b.debugLog("Refreshing token")
+	slog.Debug("refreshing token")
 
 	token := NewToken("", refreshToken, 0)
 	err = token.Refresh(ctx, b.config.ClientID)
@@ -220,7 +211,7 @@ func (b *BrowserAuth) loadCookies() ([]*proto.NetworkCookieParam, error) {
 	var cookies []*proto.NetworkCookieParam
 	err = json.NewDecoder(file).Decode(&cookies)
 	if err != nil {
-		log.Printf("INFO: cookie file seems to be invalid, it will be recreated")
+		slog.Warn("cookie file seems to be invalid, it will be recreated", "error", err)
 		return nil, nil
 	}
 

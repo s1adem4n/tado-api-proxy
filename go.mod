@@ -3,6 +3,7 @@ module github.com/s1adem4n/tado-api-proxy
 go 1.25.5
 
 require (
+	github.com/Marlliton/slogpretty v0.1.3
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-rod/rod v0.116.2
 	github.com/go-rod/stealth v0.4.9
