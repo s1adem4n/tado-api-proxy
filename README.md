@@ -1,5 +1,5 @@
 # tado API Proxy
-A proxy server that bypasses tado's API rate limits by using their browser OAuth2 client for authentication. This approach provides significantly higher rate limits compared to the standard public API.
+A proxy server that bypasses tado's API rate limits by using OAuth2 authentication. Supports both browser-based and mobile app authentication methods.
 
 > [!WARNING]  
 > tado has started locking out users from using their official apps when using the proxy with a high request volume. Use at you own caution!
@@ -13,7 +13,7 @@ This software was made for purely education purposes, and should not be used wit
 
 ## Installation
 ### Docker
-The container includes a headless Chromium browser and sets the `CHROME_EXECUTABLE` environment variable automatically.
+The container includes a headless Chromium browser (required only for browser auth method).
 
 Create a data directory with proper permissions:
 ```sh
@@ -21,12 +21,25 @@ mkdir -p /path/to/data
 sudo chown -R 1000:1000 /path/to/data
 ```
 
-Run the container:
+Run the container with mobile auth (recommended - simpler, no Chrome needed):
 ```sh
 docker run -d \
   -p 8080:8080 \
   -v /path/to/data:/config \
   --restart unless-stopped \
+  -e AUTH_METHOD=mobile \
+  -e EMAIL=you@email.com \
+  -e PASSWORD=yourpassword \
+  ghcr.io/s1adem4n/tado-api-proxy:latest
+```
+
+Or run with browser auth (original method):
+```sh
+docker run -d \
+  -p 8080:8080 \
+  -v /path/to/data:/config \
+  --restart unless-stopped \
+  -e AUTH_METHOD=browser \
   -e EMAIL=you@email.com \
   -e PASSWORD=yourpassword \
   ghcr.io/s1adem4n/tado-api-proxy:latest
@@ -38,10 +51,20 @@ If you encounter file permission errors, ensure the data directory is writable b
 ### Binary
 Download the latest release from the [releases page](https://github.com/s1adem4n/tado-api-proxy/releases).
 
-Set your credentials and run:
+Set your credentials and run with mobile auth (recommended):
 ```sh
+export AUTH_METHOD=mobile
 export EMAIL=you@email.com
 export PASSWORD=yourpassword
+./tado-api-proxy
+```
+
+Or run with browser auth:
+```sh
+export AUTH_METHOD=browser
+export EMAIL=you@email.com
+export PASSWORD=yourpassword
+export CHROME_EXECUTABLE=/usr/bin/chromium  # Only needed for browser auth
 ./tado-api-proxy
 ```
 
@@ -52,6 +75,7 @@ Requires Go 1.25 or later.
 ```sh
 git clone https://github.com/s1adem4n/tado-api-proxy.git
 cd tado-api-proxy
+export AUTH_METHOD=mobile
 export EMAIL=you@email.com
 export PASSWORD=yourpassword
 go run cmd/main.go
@@ -93,20 +117,34 @@ For more details about setting it up, see these comments:
 
 ## Configuration
 Currently, configuration is only possible via environment variables:
-| Variable          | Description           | Default                                |
-| ----------------- | --------------------- | -------------------------------------- |
-| LISTEN_ADDR       | Server listen address | `:8080`                                |
-| TOKEN_PATH        | Token storage file    | `token.json`                           |
-| COOKIES_PATH      | Cookies storage file  | `cookies.json`                         |
-| EMAIL             | tado account email    | *required*                             |
-| PASSWORD          | tado account password | *required*                             |
-| CHROME_EXECUTABLE | Chrome/Chromium path  | `/usr/bin/chromium`                    |
-| BROWSER_TIMEOUT   | Browser auth timeout  | `5m` (5 minutes)                       |
-| HEADLESS          | Run browser headless  | `true`                                 |
-| CLIENT_ID         | OAuth2 client ID      | `af44f89e-ae86-4ebe-905f-6bf759cf6473` |
-| DEBUG             | Enable debug logging  | `false`                                |
+| Variable          | Description                                   | Default                                | Required |
+| ----------------- | --------------------------------------------- | -------------------------------------- | -------- |
+| EMAIL             | tado account email                            | *none*                                 | Yes      |
+| PASSWORD          | tado account password                         | *none*                                 | Yes      |
+| AUTH_METHOD       | Authentication method (`browser` or `mobile`) | `browser`                              | No       |
+| LISTEN_ADDR       | Server listen address                         | `:8080`                                | No       |
+| TOKEN_PATH        | Token storage file                            | `token.json`                           | No       |
+| COOKIES_PATH      | Cookies storage file (browser auth only)      | `cookies.json`                         | No       |
+| CHROME_EXECUTABLE | Chrome/Chromium path (browser auth only)      | `/usr/bin/chromium`                    | No       |
+| BROWSER_TIMEOUT   | Browser auth timeout (browser auth only)      | `5m` (5 minutes)                       | No       |
+| HEADLESS          | Run browser headless (browser auth only)      | `true`                                 | No       |
+| TIMEZONE          | Timezone (mobile auth only)                   | `Europe/Berlin`                        | No       |
+| CLIENT_ID         | OAuth2 client ID                              | `af44f89e-ae86-4ebe-905f-6bf759cf6473` | No       |
+| DEBUG             | Enable debug logging                          | `false`                                | No       |
+
 
 ## How It Works
+
+### Mobile Auth Flow
+The proxy uses OAuth2 with PKCE to authenticate:
+1. Generates a PKCE code challenge and verifier
+2. Sends credentials to Tado's OAuth authorize endpoint
+3. Follows the redirect chain to obtain an authorization code
+4. Exchanges the code for access and refresh tokens
+5. Uses the access token to authenticate API requests
+6. Automatically refreshes tokens when they expire
+
+### Browser Auth Flow
 The proxy launches a headless Chrome instance to authenticate with tado using your credentials. It extracts the OAuth2 token from browser storage and uses it to authenticate API requests. When tokens expire, the refresh token is used to obtain new ones. After 2-3 days when refresh tokens expire, the browser authentication process repeats automatically.
 
 

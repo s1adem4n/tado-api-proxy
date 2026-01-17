@@ -24,18 +24,32 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	browserAuth := auth.NewBrowserAuth(&auth.BrowserAuthConfig{
-		ChromeExecutable: config.ChromeExecutable,
-		Headless:         config.Headless,
-		CookiesPath:      config.CookiesPath,
-		ClientID:         config.ClientID,
-		Email:            config.Email,
-		Password:         config.Password,
-		Timeout:          config.BrowserTimeout,
-		Debug:            config.Debug,
-	})
+	// Select auth provider based on configuration
+	var authProvider auth.AuthProvider
+	switch config.AuthMethod {
+	case "browser":
+		log.Print("Using browser authentication method")
+		authProvider = auth.NewBrowserAuth(&auth.BrowserAuthConfig{
+			ChromeExecutable: config.ChromeExecutable,
+			Headless:         config.Headless,
+			CookiesPath:      config.CookiesPath,
+			ClientID:         config.ClientID,
+			Email:            config.Email,
+			Password:         config.Password,
+			Timeout:          config.BrowserTimeout,
+			Debug:            config.Debug,
+		})
+	case "mobile":
+		log.Print("Using mobile authentication method")
+		authProvider = auth.NewMobileAuth(&auth.MobileAuthConfig{
+			Email:    config.Email,
+			Password: config.Password,
+		})
+	default:
+		log.Fatalf("Invalid auth method: %s (must be 'browser' or 'mobile')", config.AuthMethod)
+	}
 
-	authHandler := auth.NewHandler(browserAuth, &auth.HandlerConfig{
+	authHandler := auth.NewHandler(authProvider, &auth.HandlerConfig{
 		TokenPath: config.TokenPath,
 		ClientID:  config.ClientID,
 	})
