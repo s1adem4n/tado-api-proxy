@@ -1,6 +1,9 @@
 # tado API Proxy
 A proxy server that bypasses tado's API rate limits by using OAuth2 authentication. Supports both browser-based and mobile app authentication methods.
 
+> [!WARNING]  
+> tado has started locking out users from using their official apps when using the proxy with a high request volume. Use at you own caution!
+
 ## Disclaimer
 Besides owning a tado system, I have no connection with the tado company themselves. 
 `tado-api-proxy` was created for my own use, and for others who may wish to experiment with personal Internet of Things systems. 
