@@ -29,6 +29,9 @@
 				password,
 				homes: []
 			});
+
+			email = '';
+			password = '';
 			addAccountDialog.close();
 		} catch (err) {
 			error = 'Failed to add account. Please check your credentials and try again.';
