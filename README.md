@@ -73,7 +73,7 @@ Example:
 curl http://localhost:8080/api/v2/me
 ```
 
-If you have multiple accounts, you can select one with the `X-Tado-Email` header:
+If you have multiple accounts, you can select one with the `X-Tado-Email` header. If you don't specify one, the proxy will balance it across all the accounts.
 ```sh
 curl -H "X-Tado-Email: you@email.com" http://localhost:8080/api/v2/me
 ```
