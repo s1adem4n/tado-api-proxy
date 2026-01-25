@@ -25,7 +25,7 @@
 
 		try {
 			await pb.collection('accounts').create({
-				email,
+				email: email.trim(),
 				password,
 				homes: []
 			});
