@@ -5,31 +5,11 @@
 	import { pb } from '@/lib/pb';
 	import { MultipleSubscription } from '@/lib/stores.svelte';
 
-	const accounts = new MultipleSubscription(
-		pb.collection('accounts'),
-		() => '',
-		(items) => items
-	);
-	const homes = new MultipleSubscription(
-		pb.collection('homes'),
-		() => '',
-		(items) => items
-	);
-	const tokens = new MultipleSubscription(
-		pb.collection('tokens'),
-		() => '',
-		(items) => items
-	);
-	const clients = new MultipleSubscription(
-		pb.collection('clients'),
-		() => '',
-		(items) => items
-	);
-	const codes = new MultipleSubscription(
-		pb.collection('codes'),
-		() => '',
-		(items) => items
-	);
+	const accounts = new MultipleSubscription(pb.collection('accounts'));
+	const homes = new MultipleSubscription(pb.collection('homes'));
+	const tokens = new MultipleSubscription(pb.collection('tokens'));
+	const clients = new MultipleSubscription(pb.collection('clients'));
+	const codes = new MultipleSubscription(pb.collection('codes'));
 </script>
 
 <AccountsTable accounts={accounts.items} homes={homes.items} />

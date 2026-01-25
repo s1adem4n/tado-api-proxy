@@ -5,24 +5,28 @@ export class MultipleSubscription<T extends Base> {
 	items: T[] = $state([]);
 	promise: Promise<void> | null = null;
 
-	constructor(service: RecordService<T>, filter: () => string, transform: (items: T[]) => T[]) {
+	constructor(service: RecordService<T>, filter?: () => string, transform?: (items: T[]) => T[]) {
 		$effect(() => {
-			this.promise = service.getFullList({ filter: filter() }).then((items) => {
-				this.items = transform(items);
+			this.promise = service.getFullList({ filter: filter?.() }).then((items) => {
+				this.items = transform ? transform(items) : items;
 			});
 		});
 
 		$effect(() => {
 			const unsubscribe = service.subscribe('*', (e) => {
+				let updated: T[] = [];
 				switch (e.action) {
 					case 'create':
-						this.items = transform([...this.items, e.record]);
+						updated = [...this.items, e.record];
+						this.items = transform ? transform(updated) : updated;
 						break;
 					case 'update':
-						this.items = this.items.map((item) => (item.id === e.record.id ? e.record : item));
+						updated = this.items.map((item) => (item.id === e.record.id ? e.record : item));
+						this.items = transform ? transform(updated) : updated;
 						break;
 					case 'delete':
-						this.items = this.items.filter((item) => item.id !== e.record.id);
+						updated = this.items.filter((item) => item.id !== e.record.id);
+						this.items = transform ? transform(updated) : updated;
 						break;
 				}
 			});
