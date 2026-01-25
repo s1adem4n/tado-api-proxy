@@ -1,8 +1,7 @@
 FROM docker.io/alpine:latest
 
-RUN useradd appuser
+RUN addgroup -S appuser && adduser -S -G appuser appuser
 USER appuser
-
 
 ARG TARGETARCH
 COPY build/main-${TARGETARCH} /app
