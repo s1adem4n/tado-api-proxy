@@ -1,5 +1,9 @@
 FROM docker.io/alpine:latest
 
+RUN useradd appuser
+USER appuser
+
+
 ARG TARGETARCH
 COPY build/main-${TARGETARCH} /app
 
