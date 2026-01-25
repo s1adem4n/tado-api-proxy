@@ -1,0 +1,321 @@
+package tado
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"net/http/cookiejar"
+	"strings"
+	"time"
+
+	"github.com/pocketbase/pocketbase/core"
+)
+
+const (
+	UserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1"
+)
+
+type Client struct {
+	app core.App
+}
+
+func NewClient(app core.App) *Client {
+	return &Client{
+		app: app,
+	}
+}
+
+func (c *Client) Register() {
+	c.app.OnRecordCreate("accounts").BindFunc(func(e *core.RecordEvent) error {
+		err := e.Next()
+		if err != nil {
+			return err
+		}
+
+		err = c.LoadAccountData(context.Background(), e.Record)
+		if err != nil {
+			c.app.Delete(e.Record)
+			return err
+		}
+
+		return nil
+	})
+
+	c.app.OnRecordCreateRequest("codes").BindFunc(func(e *core.RecordRequestEvent) error {
+		err := c.CreateCode(e)
+		if err != nil {
+			return err
+		}
+
+		return e.Next()
+	})
+
+	c.app.Cron().MustAdd("refresh-tokens", "* * * * *", func() {
+		err := c.RefreshExpiredTokens(context.Background())
+		if err != nil {
+			slog.Error("failed to refresh tokens", "error", err)
+		}
+	})
+
+	c.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		return e.Next()
+	})
+}
+
+func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) error {
+	tokensCollection, err := c.app.FindCollectionByNameOrId("tokens")
+	if err != nil {
+		return err
+	}
+
+	homesCollection, err := c.app.FindCollectionByNameOrId("homes")
+	if err != nil {
+		return err
+	}
+
+	clients, err := c.app.FindRecordsByFilter(
+		"clients",
+		"type = 'passwordGrant'",
+		"", 0, 0,
+	)
+	if err != nil {
+		return err
+	}
+
+	var accessToken string
+
+	for _, client := range clients {
+		token, err := c.Authorize(ctx,
+			client.GetString("clientID"),
+			client.GetString("redirectURI"),
+			client.GetString("scope"),
+			account.GetString("email"),
+			account.GetString("password"),
+		)
+		if err != nil {
+			return err
+		}
+
+		accessToken = token.AccessToken
+
+		tokenRecord := core.NewRecord(tokensCollection)
+		tokenRecord.Set("account", account.Id)
+		tokenRecord.Set("client", client.Id)
+		tokenRecord.Set("status", "valid")
+		tokenRecord.Set("accessToken", token.AccessToken)
+		tokenRecord.Set("refreshToken", token.RefreshToken)
+
+		expiry := CalculateTokenExpiry(token.ExpiresIn)
+		tokenRecord.Set("expires", expiry)
+
+		if err := c.app.Save(tokenRecord); err != nil {
+			return err
+		}
+	}
+
+	me, err := c.GetMe(ctx, accessToken)
+	if err != nil {
+		return err
+	}
+
+	var homeIDs []string
+	for _, home := range me.Homes {
+		homeRecord, err := c.app.FindFirstRecordByData("homes", "tadoID", home.ID)
+		if err != nil {
+			homeRecord = core.NewRecord(homesCollection)
+			homeRecord.Set("tadoID", home.ID)
+			homeRecord.Set("name", home.Name)
+		}
+
+		if err := c.app.Save(homeRecord); err != nil {
+			return err
+		}
+
+		homeIDs = append(homeIDs, homeRecord.Id)
+	}
+
+	account.Set("homes", homeIDs)
+	account.Set("tadoID", me.ID)
+	if err := c.app.Save(account); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) CreateCode(e *core.RecordRequestEvent) error {
+	clientRecord, err := c.app.FindRecordById("clients", e.Record.GetString("client"))
+	if err != nil {
+		return err
+	}
+
+	if clientRecord.GetString("type") != "deviceCode" {
+		return nil
+	}
+
+	deviceAuth, err := c.DeviceAuthorize(
+		e.Request.Context(),
+		clientRecord.GetString("clientID"),
+		clientRecord.GetString("scope"),
+	)
+	if err != nil {
+		return err
+	}
+
+	e.Record.Set("deviceCode", deviceAuth.DeviceCode)
+	e.Record.Set("userCode", deviceAuth.UserCode)
+
+	verificationURI := deviceAuth.VerificationURIComplete
+	verificationURI += "&client_id=" + clientRecord.GetString("clientID")
+	e.Record.Set("verificationURI", verificationURI)
+
+	expires := time.Now().Add(time.Duration(deviceAuth.ExpiresIn) * time.Second)
+	e.Record.Set("expires", expires)
+
+	go func() {
+		err := c.WaitForDeviceAuthorization(
+			context.Background(),
+			clientRecord,
+			e.Record,
+		)
+		if err != nil {
+			c.app.Logger().Error("device authorization failed", "error", err)
+		}
+	}()
+
+	return nil
+}
+
+func (c *Client) WaitForDeviceAuthorization(
+	ctx context.Context,
+	clientRecord *core.Record,
+	codeRecord *core.Record,
+) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	ctx, cancel := context.WithDeadline(ctx, codeRecord.GetDateTime("expires").Time())
+	defer cancel()
+
+	tokensCollection, err := c.app.FindCollectionByNameOrId("tokens")
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			token, err := c.ExchangeDeviceCode(
+				ctx,
+				clientRecord.GetString("clientID"),
+				codeRecord.GetString("deviceCode"),
+			)
+			if err != nil {
+				continue
+			}
+
+			me, err := c.GetMe(ctx, token.AccessToken)
+			if err != nil {
+				return err
+			}
+
+			accountRecord, err := c.app.FindFirstRecordByData("accounts", "tadoID", me.ID)
+			if err != nil {
+				return err
+			}
+
+			tokenRecord := core.NewRecord(tokensCollection)
+
+			tokenRecord.Set("account", accountRecord.Id)
+			tokenRecord.Set("client", clientRecord.Id)
+			tokenRecord.Set("status", "valid")
+			tokenRecord.Set("accessToken", token.AccessToken)
+			tokenRecord.Set("refreshToken", token.RefreshToken)
+
+			expiry := CalculateTokenExpiry(token.ExpiresIn)
+			tokenRecord.Set("expires", expiry)
+
+			if err := c.app.Save(tokenRecord); err != nil {
+				return err
+			}
+
+			codeRecord.Set("token", tokenRecord.Id)
+			if err := c.app.Save(codeRecord); err != nil {
+				return err
+			}
+
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (c *Client) RefreshExpiredTokens(ctx context.Context) error {
+	tokens, err := c.app.FindAllRecords("tokens")
+	if err != nil {
+		return err
+	}
+
+	for _, tokenRecord := range tokens {
+		if tokenRecord.GetString("status") != "valid" {
+			continue
+		}
+
+		expires := tokenRecord.GetDateTime("expires")
+		bufferedExpiry := expires.Add(-1 * time.Minute)
+		if time.Now().Before(bufferedExpiry.Time()) {
+			continue
+		}
+
+		clientRecord, err := c.app.FindRecordById("clients", tokenRecord.GetString("client"))
+		if err != nil {
+			return err
+		}
+
+		newToken, err := c.RefreshToken(ctx,
+			clientRecord.GetString("clientID"),
+			tokenRecord.GetString("refreshToken"),
+		)
+		if err != nil {
+			tokenRecord.Set("status", "invalid")
+			c.app.Save(tokenRecord)
+			continue
+		}
+
+		tokenRecord.Set("accessToken", newToken.AccessToken)
+		tokenRecord.Set("refreshToken", newToken.RefreshToken)
+		expiry := CalculateTokenExpiry(newToken.ExpiresIn)
+		tokenRecord.Set("expires", expiry)
+
+		if err := c.app.Save(tokenRecord); err != nil {
+			return err
+		}
+
+		slog.Info("refreshed token", "id", tokenRecord.Id)
+	}
+
+	return nil
+}
+
+func (c *Client) createHTTPClient() (*http.Client, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Jar:     jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}, nil
+}
+
+func (c *Client) absURL(loc string) string {
+	if strings.HasPrefix(loc, "http") {
+		return loc
+	}
+	return "https://login.tado.com" + loc
+}

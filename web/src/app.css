@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/mulish';
+
+@plugin 'daisyui' {
+	exclude: properties;
+	themes:
+		corporate --default,
+		dim --prefersdark;
+}
+
+#app {
+	@apply mx-auto flex w-full max-w-xl flex-col gap-4 p-4;
+}
+
+@theme {
+	--font-sans: 'Mulish Variable', sans-serif;
+}
