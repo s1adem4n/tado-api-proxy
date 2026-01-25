@@ -1,6 +1,6 @@
 FROM docker.io/alpine:latest
 
-RUN addgroup -S appuser && adduser -S -G appuser appuser
+RUN addgroup -g 1000 -S appuser && adduser -u 1000 -S -G appuser appuser
 USER appuser
 
 ARG TARGETARCH
