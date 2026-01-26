@@ -79,13 +79,10 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 	var totalUsed int
 	var totalLimit int
 
-	// cutoff at 12:00 in CET
-	loc, err := time.LoadLocation("Europe/Berlin")
+	cutoff, err := getRatelimtCutoff()
 	if err != nil {
 		return err
 	}
-	now := time.Now().In(loc)
-	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
 
 	for _, token := range tokens {
 		client, err := h.app.FindRecordById("clients", token.GetString("client"))
@@ -300,7 +297,7 @@ func getRatelimtCutoff() (time.Time, error) {
 	}
 
 	now := time.Now().In(loc)
-	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
 
 	return cutoff, nil
 }
