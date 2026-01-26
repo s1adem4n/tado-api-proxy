@@ -7,9 +7,16 @@ A self-hosted proxy for the tado API that stores and rotates OAuth tokens on you
 
 ## Screenshots
 
-| Home Page                                     | Statistics Page                                                 |
-| --------------------------------------------- | --------------------------------------------------------------- |
-| ![Home](screenshots/home.png?raw=true 'Home') | ![Statistics](screenshots/statistics.png?raw=true 'Statistics') |
+<table align="center">
+  <tr>
+    <th>Home Page</th>
+    <th>Statistics Page</th>
+  </tr>
+  <tr>
+    <td><img src="screenshots/home.png" alt="Home" width="350" /></td>
+    <td><img src="screenshots/statistics.png" alt="Statistics" width="350" /></td>
+  </tr>
+</table>
 
 ## Features
 
