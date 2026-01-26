@@ -352,7 +352,7 @@ func (c *Client) fixDeviceCodeToken(tokenRecord *core.Record) error {
 	}
 
 	lastUsed := tokenRecord.GetDateTime("lastUsed")
-	if lastUsed.Time().Before(cutoff) {
+	if time.Now().After(cutoff) && lastUsed.Time().Before(cutoff) {
 		tokenRecord.Set("status", "valid")
 		if err := c.app.Save(tokenRecord); err != nil {
 			return err
