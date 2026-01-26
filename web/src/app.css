@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/mulish';
+@import '@fontsource-variable/nunito';
 
 @plugin 'daisyui' {
 	exclude: properties;
@@ -18,5 +18,5 @@
 }
 
 @theme {
-	--font-sans: 'Mulish Variable', sans-serif;
+	--font-sans: 'Nunito Variable', sans-serif;
 }
