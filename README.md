@@ -5,6 +5,12 @@ A self-hosted proxy for the tado API that stores and rotates OAuth tokens on you
 > [!WARNING]
 > Use at your own risk. tado has recently begun locking out users who generate high request volumes via third-party tools. While this proxy implements rate limiting to mitigate detection, it is still possible for tado to ban an account.
 
+## Screenshots
+
+| Home Page                                     | Statistics Page                                                 |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| ![Home](screenshots/home.png?raw=true 'Home') | ![Statistics](screenshots/statistics.png?raw=true 'Statistics') |
+
 ## Features
 
 - Web admin UI for managing accounts, tokens, and device-code authorizations

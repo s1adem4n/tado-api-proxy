@@ -1,6 +1,59 @@
 import { pb, type Base } from '@/lib/pb';
 import { type AuthRecord, type RecordService } from 'pocketbase';
 
+export class NavigationStore {
+	path: string = $state(window.location.pathname);
+	query: Record<string, string> = $state(this.parseQuery());
+
+	constructor() {
+		$effect.root(() => {
+			$effect(() => {
+				const onPopState = () => {
+					this.path = window.location.pathname;
+					this.query = this.parseQuery();
+				};
+				window.addEventListener('popstate', onPopState);
+
+				return () => window.removeEventListener('popstate', onPopState);
+			});
+		});
+	}
+
+	private parseQuery(): Record<string, string> {
+		const params = new URLSearchParams(window.location.search);
+		const result: Record<string, string> = {};
+		params.forEach((value, key) => {
+			result[key] = value;
+		});
+		return result;
+	}
+
+	navigate(path: string, query?: Record<string, string>) {
+		const url = new URL(path, window.location.origin);
+		if (query) {
+			Object.entries(query).forEach(([key, value]) => {
+				url.searchParams.set(key, value);
+			});
+		}
+		window.history.pushState({}, '', url.pathname + url.search);
+		this.path = url.pathname;
+		this.query = query ?? {};
+	}
+
+	setQuery(key: string, value: string) {
+		const url = new URL(window.location.href);
+		url.searchParams.set(key, value);
+		window.history.replaceState({}, '', url.pathname + url.search);
+		this.query = { ...this.query, [key]: value };
+	}
+
+	getQuery(key: string, defaultValue?: string): string {
+		return this.query[key] ?? defaultValue ?? '';
+	}
+}
+
+export const navigation = new NavigationStore();
+
 export class MultipleSubscription<T extends Base> {
 	items: T[] = $state([]);
 	promise: Promise<void> | null = null;

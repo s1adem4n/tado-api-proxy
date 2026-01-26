@@ -66,6 +66,7 @@ export interface TypedPocketBase extends PocketBase {
 }
 
 export const pb = new PocketBase() as TypedPocketBase;
+pb.autoCancellation(false);
 
 export type RatelimitDetails = {
 	limit: number;

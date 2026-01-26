@@ -3,7 +3,9 @@
 	import { DeviceCodeSection } from '@/lib/components/device-code';
 	import { TokensTable } from '@/lib/components/tokens-table';
 	import { pb } from '@/lib/pb';
-	import { MultipleSubscription } from '@/lib/stores.svelte';
+	import { MultipleSubscription, navigation } from '@/lib/stores.svelte';
+	import ChartBarIcon from '~icons/lucide/chart-bar';
+	import LogOutIcon from '~icons/lucide/log-out';
 
 	const accounts = new MultipleSubscription(pb.collection('accounts'));
 	const homes = new MultipleSubscription(pb.collection('homes'));
@@ -11,6 +13,21 @@
 	const clients = new MultipleSubscription(pb.collection('clients'));
 	const codes = new MultipleSubscription(pb.collection('codes'));
 </script>
+
+<header class="flex items-center justify-between">
+	<h1 class="text-3xl font-semibold">Tado API Proxy</h1>
+	<div class="flex items-center gap-1">
+		<button class="btn btn-ghost btn-sm" onclick={() => navigation.navigate('/statistics')}>
+			<ChartBarIcon class="h-4 w-4" />
+			Statistics
+		</button>
+
+		<button class="btn btn-ghost btn-sm" onclick={() => pb.authStore.clear()}>
+			<LogOutIcon class="h-4 w-4" />
+			Logout
+		</button>
+	</div>
+</header>
 
 <AccountsTable accounts={accounts.items} homes={homes.items} />
 
