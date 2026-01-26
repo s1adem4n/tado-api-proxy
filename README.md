@@ -142,6 +142,9 @@ Repeat these steps to add more accounts and increase your rate limit further.
 
 ### Authorize Official API (Optional)
 
+> [!NOTE]
+> The official API client shares its rate limit _per home_, so it does not make sense to add more than one token per home!
+
 You can also authorize accounts for the official tado API client, which increases your rate limit even further.
 
 1. In the web UI, click `Start Authorization` in the "Authorize Official API" section.
