@@ -57,63 +57,66 @@
 
 <div class="flex flex-col gap-2">
 	<h2 class="text-2xl font-semibold">Authorize Official API</h2>
-	<p class="mb-2 text-sm text-base-content/70">
-		You can only authorize accounts that you have already added in the table above.
-	</p>
 
-	<form class="flex flex-col gap-4" onsubmit={submit}>
-		{#if supportedClients.length > 1}
-			<div class="flex flex-col gap-2">
-				<label for="client" class="label">Select Client</label>
-				<select id="client" class="select w-full" bind:value={client}>
-					{#each supportedClients as c}
-						<option value={c.id}>{c.name}</option>
-					{/each}
-				</select>
-			</div>
-		{/if}
+	<div class="card border border-base-content/5 bg-base-100">
+		<div class="card-body">
+			<p class="text-sm text-base-content/70">
+				You can only authorize accounts that you have already added in the table above.
+			</p>
 
-		<button
-			type="submit"
-			class="btn btn-primary"
-			disabled={status === 'loading' || currentCode?.status === 'pending'}
-		>
-			{#if status === 'loading'}
-				<span class="loading loading-spinner"></span>
-				Starting Authorization...
-			{:else if currentCode?.status === 'pending'}
-				<span class="loading loading-spinner"></span>
-				Waiting for Authorization...
-			{:else}
-				Start Authorization
-			{/if}
-		</button>
+			<form class="mt-2 flex flex-col gap-4" onsubmit={submit}>
+				{#if supportedClients.length > 1}
+					<div class="flex flex-col gap-2">
+						<label for="client" class="label">Select Client</label>
+						<select id="client" class="select w-full" bind:value={client}>
+							{#each supportedClients as c}
+								<option value={c.id}>{c.name}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
 
-		{#if currentCode?.status === 'pending'}
-			<p class="text-sm text-success">
-				An authorization is already in progress. Please complete it in the opened window or <a
-					href={currentCode.verificationURI}
-					target="_blank"
-					class="underline"
+				<button
+					type="submit"
+					class="btn btn-primary"
+					disabled={status === 'loading' || currentCode?.status === 'pending'}
 				>
-					open it again
-				</a>.
-			</p>
-		{:else if currentCode?.status === 'expired'}
-			<p class="text-sm text-error">
-				The previous authorization has expired. Please start a new authorization.
-			</p>
-		{:else if currentCode?.status === 'unknownAccount'}
-			<p class="text-sm text-error">
-				The account you tried to authorize does not exist in the system. Please add the account
-				first.
-			</p>
-		{/if}
+					{#if status === 'loading'}
+						<span class="loading loading-spinner"></span>
+						Starting Authorization...
+					{:else if currentCode?.status === 'pending'}
+						<span class="loading loading-spinner"></span>
+						Waiting for Authorization...
+					{:else}
+						Start Authorization
+					{/if}
+				</button>
 
-		{#if status === 'error'}
-			<p class="text-sm text-error">
-				An error occurred while starting the authorization. Please try again.
-			</p>
-		{/if}
-	</form>
+				{#if currentCode?.status === 'pending'}
+					<div class="alert alert-success">
+						<span>
+							Authorization in progress. Complete it in the opened window or
+							<a href={currentCode.verificationURI} target="_blank" class="font-medium underline">
+								open it again
+							</a>.
+						</span>
+					</div>
+				{:else if currentCode?.status === 'expired'}
+					<div class="alert alert-warning">
+						<span>The previous authorization has expired. Please start a new one.</span>
+					</div>
+				{:else if currentCode?.status === 'unknownAccount'}
+					<div class="alert alert-error">
+						<span>The account does not exist in the system. Please add it first.</span>
+					</div>
+				{/if}
+
+				{#if status === 'error'}
+					<div class="alert alert-error">
+						<span>An error occurred while starting the authorization. Please try again.</span>
+					</div>
+				{/if}
+			</form>
+		</div>
+	</div>
 </div>

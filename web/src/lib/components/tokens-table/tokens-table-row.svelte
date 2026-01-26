@@ -30,7 +30,26 @@
 <tr>
 	<td>{account.email}</td>
 	<td>{client.name}</td>
-	<td>{formatLastUsed(token.used)}</td>
-	<td class="capitalize">{token.status}</td>
-	<td>{ratelimitDetails.used}/{ratelimitDetails.limit}</td>
+	<td class="text-base-content/70">{formatLastUsed(token.used)}</td>
+	<td>
+		<span
+			class="badge badge-sm capitalize"
+			class:badge-success={token.status === 'valid'}
+			class:badge-error={token.status === 'invalid'}
+		>
+			{token.status}
+		</span>
+	</td>
+	<td>
+		<div class="flex items-center gap-2">
+			<progress
+				class="progress-sm progress w-16"
+				value={ratelimitDetails.used}
+				max={ratelimitDetails.limit}
+			></progress>
+			<span class="text-sm text-base-content/70">
+				{ratelimitDetails.used}/{ratelimitDetails.limit}
+			</span>
+		</div>
+	</td>
 </tr>

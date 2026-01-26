@@ -31,6 +31,7 @@
 
 <div class="flex flex-col gap-2">
 	<h2 class="text-2xl font-semibold">Tokens</h2>
+	<p class="text-sm text-base-content/70">Active API tokens and their rate limit usage.</p>
 
 	<div class="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
 		<table class="table">
