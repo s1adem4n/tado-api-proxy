@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/nunito';
+@import '@fontsource-variable/figtree';
 
 @plugin 'daisyui' {
 	exclude: properties;
@@ -18,5 +18,5 @@
 }
 
 @theme {
-	--font-sans: 'Nunito Variable', sans-serif;
+	--font-sans: 'Figtree Variable', sans-serif;
 }
