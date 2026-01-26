@@ -76,7 +76,8 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		return e.BadRequestError("no valid tokens found", nil)
 	}
 
-	var validTokens []*core.Record
+	var preferredTokens []*core.Record
+	var otherTokens []*core.Record
 	var totalUsed int
 	var totalLimit int
 
@@ -107,7 +108,11 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		totalUsed += count
 
 		if count < client.GetInt("dailyLimit") {
-			validTokens = append(validTokens, token)
+			if client.GetString("type") == "deviceCode" {
+				preferredTokens = append(preferredTokens, token)
+			} else {
+				otherTokens = append(otherTokens, token)
+			}
 		}
 	}
 
@@ -124,6 +129,9 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		Path:     e.Request.URL.Path,
 		RawQuery: e.Request.URL.RawQuery,
 	}
+
+	// We try preferred (official API) tokens first
+	validTokens := append(preferredTokens, otherTokens...)
 
 	for _, token := range validTokens {
 		req, err := http.NewRequestWithContext(
