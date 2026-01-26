@@ -3,9 +3,14 @@
 
 @plugin 'daisyui' {
 	exclude: properties;
-	themes:
-		corporate --default,
-		dim --prefersdark;
+	themes: corporate --default;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'corporate';
+	default: true;
+
+	--color-primary: #ffb424;
 }
 
 #app {
