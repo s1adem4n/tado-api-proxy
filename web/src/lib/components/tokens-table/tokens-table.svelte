@@ -1,6 +1,12 @@
 <script lang="ts">
 	import TokensTableRow from './tokens-table-row.svelte';
-	import type { Account, Client, Token } from '@/lib/pb';
+	import {
+		fetchRatelimits,
+		type Account,
+		type Client,
+		type Ratelimits,
+		type Token
+	} from '@/lib/pb';
 
 	let {
 		tokens,
@@ -13,6 +19,14 @@
 	} = $props();
 
 	const sortedTokens = $derived(tokens.toSorted((a, b) => b.used.localeCompare(a.used)));
+
+	let ratelimits: Ratelimits = $state({});
+	$effect(() => {
+		tokens;
+		fetchRatelimits().then((data) => {
+			ratelimits = data;
+		});
+	});
 </script>
 
 <div class="flex flex-col gap-2">
@@ -26,15 +40,17 @@
 					<th>Client</th>
 					<th>Last used</th>
 					<th>Status</th>
+					<th>Rate Limit</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each sortedTokens as token}
 					{@const account = accounts.find((account) => account.id === token.account)}
 					{@const client = clients.find((client) => client.id === token.client)}
+					{@const ratelimitDetails = ratelimits[token.id]}
 
-					{#if account && client}
-						<TokensTableRow {token} {account} {client} />
+					{#if account && client && ratelimitDetails}
+						<TokensTableRow {token} {account} {client} {ratelimitDetails} />
 					{/if}
 				{:else}
 					<tr>

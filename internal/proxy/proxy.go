@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log/slog"
 	"maps"
@@ -30,7 +31,8 @@ func NewHandler(app core.App) *Handler {
 
 func (h *Handler) Register() {
 	h.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		e.Router.Any("/api/v2/{path...}", h.HandleRequest)
+		e.Router.Any("/api/v2/{path...}", h.HandleProxyRequest)
+		e.Router.GET("/api/ratelimits", h.HandleRatelimitsRequest)
 
 		return e.Next()
 	})
@@ -44,7 +46,7 @@ func (h *Handler) Register() {
 	})
 }
 
-func (h *Handler) HandleRequest(e *core.RequestEvent) error {
+func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 	filter := "status = 'valid'"
 
 	accountEmail := e.Request.Header.Get("X-Tado-Email")
@@ -73,11 +75,50 @@ func (h *Handler) HandleRequest(e *core.RequestEvent) error {
 		return e.BadRequestError("no valid tokens found", nil)
 	}
 
+	var validTokens []*core.Record
+	var totalUsed int
+	var totalLimit int
+
+	// cutoff at 00:00 in CET
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return err
+	}
+	now := time.Now().In(loc)
+	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	for _, token := range tokens {
+		client, err := h.app.FindRecordById("clients", token.GetString("client"))
+		if err != nil {
+			return err
+		}
+
+		totalLimit += client.GetInt("dailyLimit")
+
+		var count int
+		err = h.app.DB().NewQuery(
+			"SELECT count(*) FROM requests WHERE token = {:tokenID} AND created > {:cutoff}",
+		).Bind(dbx.Params{
+			"tokenID": token.Id,
+			"cutoff":  cutoff,
+		}).Row(&count)
+		if err != nil {
+			return err
+		}
+
+		totalUsed += count
+
+		if count < client.GetInt("dailyLimit") {
+			validTokens = append(validTokens, token)
+		}
+	}
+
+	// Read body for reuse
 	bodyBytes, err := io.ReadAll(e.Request.Body)
 	if err != nil {
 		return err
 	}
-	defer e.Request.Body.Close()
+	e.Request.Body.Close()
 
 	url := url.URL{
 		Scheme:   "https",
@@ -86,12 +127,12 @@ func (h *Handler) HandleRequest(e *core.RequestEvent) error {
 		RawQuery: e.Request.URL.RawQuery,
 	}
 
-	for _, token := range tokens {
+	for _, token := range validTokens {
 		req, err := http.NewRequestWithContext(
 			e.Request.Context(),
 			e.Request.Method,
 			url.String(),
-			io.NopCloser(bytes.NewReader(bodyBytes)),
+			bytes.NewReader(bodyBytes),
 		)
 		if err != nil {
 			return err
@@ -125,7 +166,18 @@ func (h *Handler) HandleRequest(e *core.RequestEvent) error {
 		}
 
 		maps.Copy(e.Response.Header(), resp.Header)
+
+		e.Response.Header().Set(
+			"Ratelimit",
+			fmt.Sprintf(`"perday";r=%d`, totalLimit-totalUsed-1),
+		)
+		e.Response.Header().Set(
+			"Ratelimit-Policy",
+			fmt.Sprintf(`"perday";q=%d;w=86400`, totalLimit),
+		)
+
 		e.Response.WriteHeader(resp.StatusCode)
+
 		_, err = io.Copy(e.Response, resp.Body)
 		resp.Body.Close()
 		if err != nil {
@@ -153,15 +205,63 @@ func (h *Handler) HandleRequest(e *core.RequestEvent) error {
 	return e.UnauthorizedError("no valid tokens found", nil)
 }
 
+func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
+	tokens, err := h.app.FindRecordsByFilter(
+		"tokens",
+		"", "used", 0, 0,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	if len(tokens) == 0 {
+		return e.JSON(200, nil)
+	}
+
+	usage := map[string]any{}
+	cutoff, err := getRatelimtCutoff()
+	if err != nil {
+		return err
+	}
+
+	for _, token := range tokens {
+		client, err := h.app.FindRecordById("clients", token.GetString("client"))
+		if err != nil {
+			return err
+		}
+
+		var count int
+		err = h.app.DB().NewQuery(
+			"SELECT count(*) FROM requests WHERE token = {:tokenID} AND created > {:cutoff}",
+		).Bind(dbx.Params{
+			"tokenID": token.Id,
+			"cutoff":  cutoff,
+		}).Row(&count)
+		if err != nil {
+			return err
+		}
+
+		usage[token.Id] = map[string]any{
+			"used":      count,
+			"limit":     client.GetInt("dailyLimit"),
+			"remaining": client.GetInt("dailyLimit") - count,
+			"status":    token.GetString("status"),
+		}
+	}
+
+	return e.JSON(200, usage)
+}
+
 func (h *Handler) CleanRequestLogs() error {
-	threshold := time.Now().Add(-7 * 24 * time.Hour)
+	cutoff := time.Now().Add(-7 * 24 * time.Hour)
 
 	records, err := h.app.FindRecordsByFilter(
 		"requests",
-		"created < {:threshold}",
+		"created < {:cutoff}",
 		"", 0, 0,
 		dbx.Params{
-			"threshold": threshold,
+			"cutoff": cutoff,
 		},
 	)
 	if err != nil {
@@ -191,4 +291,16 @@ func extractHomeID(path string) string {
 		return matches[1]
 	}
 	return ""
+}
+
+func getRatelimtCutoff() (time.Time, error) {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	now := time.Now().In(loc)
+	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	return cutoff, nil
 }

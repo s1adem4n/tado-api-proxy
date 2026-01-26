@@ -9,7 +9,7 @@
 }
 
 #app {
-	@apply mx-auto flex w-full max-w-xl flex-col gap-4 p-4;
+	@apply mx-auto flex w-full max-w-2xl flex-col gap-4 p-4;
 }
 
 @theme {

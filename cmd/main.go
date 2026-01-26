@@ -88,6 +88,7 @@ func seedClients(app core.App) {
 			"type":        "deviceCode",
 			"redirectURI": "https://login.tado.com/oauth2/device",
 			"scope":       "offline_access",
+			"dailyLimit":  5000,
 		},
 		{
 			"name":        "Web App",
@@ -95,6 +96,7 @@ func seedClients(app core.App) {
 			"type":        "passwordGrant",
 			"redirectURI": "https://app.tado.com",
 			"scope":       "home.user offline_access",
+			"dailyLimit":  3000,
 		},
 		{
 			"name":        "Mobile App",
@@ -102,6 +104,7 @@ func seedClients(app core.App) {
 			"type":        "passwordGrant",
 			"redirectURI": "tado://auth/redirect",
 			"scope":       "home.user offline_access",
+			"dailyLimit":  3000,
 		},
 	}
 

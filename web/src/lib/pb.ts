@@ -27,6 +27,7 @@ export interface Code extends Base {
 	deviceCode: string;
 	userCode: string;
 	verificationURI: string;
+	status: 'pending' | 'authorized' | 'expired' | 'unknownAccount';
 	expires: string;
 }
 
@@ -42,10 +43,12 @@ export interface Requests extends Base {
 	status: number;
 }
 
+export type TokenStatus = 'valid' | 'invalid';
+
 export interface Token extends Base {
 	account: string;
 	client: string;
-	status: 'valid' | 'invalid';
+	status: TokenStatus;
 	accessToken: string;
 	refreshToken: string;
 	expires: string;
@@ -63,3 +66,16 @@ export interface TypedPocketBase extends PocketBase {
 }
 
 export const pb = new PocketBase() as TypedPocketBase;
+
+export type RatelimitDetails = {
+	limit: number;
+	remaining: number;
+	used: number;
+	status: TokenStatus;
+};
+
+export type Ratelimits = Record<string, RatelimitDetails>;
+
+export async function fetchRatelimits() {
+	return await pb.send<Ratelimits>('/api/ratelimits', { method: 'GET' });
+}

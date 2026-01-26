@@ -162,6 +162,7 @@ func (c *Client) CreateCode(e *core.RecordRequestEvent) error {
 		return err
 	}
 
+	e.Record.Set("status", "pending")
 	e.Record.Set("deviceCode", deviceAuth.DeviceCode)
 	e.Record.Set("userCode", deviceAuth.UserCode)
 
@@ -221,10 +222,26 @@ func (c *Client) WaitForDeviceAuthorization(
 
 			accountRecord, err := c.app.FindFirstRecordByData("accounts", "tadoID", me.ID)
 			if err != nil {
+				codeRecord.Set("status", "unknownAccount")
+				if err := c.app.Save(codeRecord); err != nil {
+					return err
+				}
 				return err
 			}
 
-			tokenRecord := core.NewRecord(tokensCollection)
+			// Check if a token already exists for this account and client
+			tokenRecord, err := c.app.FindFirstRecordByFilter(
+				"tokens",
+				"account = {:accountID} && client = {:clientID}",
+				map[string]any{
+					"accountID": accountRecord.Id,
+					"clientID":  clientRecord.Id,
+				},
+			)
+			if err != nil {
+				// Create a new token if not found
+				tokenRecord = core.NewRecord(tokensCollection)
+			}
 
 			tokenRecord.Set("account", accountRecord.Id)
 			tokenRecord.Set("client", clientRecord.Id)
@@ -239,6 +256,7 @@ func (c *Client) WaitForDeviceAuthorization(
 				return err
 			}
 
+			codeRecord.Set("status", "authorized")
 			codeRecord.Set("token", tokenRecord.Id)
 			if err := c.app.Save(codeRecord); err != nil {
 				return err
@@ -246,6 +264,11 @@ func (c *Client) WaitForDeviceAuthorization(
 
 			return nil
 		case <-ctx.Done():
+			codeRecord.Set("status", "expired")
+			if err := c.app.Save(codeRecord); err != nil {
+				return err
+			}
+
 			return ctx.Err()
 		}
 	}
@@ -259,42 +282,94 @@ func (c *Client) RefreshExpiredTokens(ctx context.Context) error {
 
 	for _, tokenRecord := range tokens {
 		if tokenRecord.GetString("status") != "valid" {
-			continue
+			client, err := c.app.FindRecordById("clients", tokenRecord.GetString("client"))
+			if err != nil {
+				return err
+			}
+
+			if client.GetString("type") == "passwordGrant" {
+				err := c.fixPasswordGrantToken(ctx, tokenRecord, client)
+				if err != nil {
+					tokenRecord.Set("status", "invalid")
+					c.app.Save(tokenRecord)
+					c.app.Logger().Error("failed to fix password grant token", "id", tokenRecord.Id, "error", err)
+				}
+			}
 		}
 
-		expires := tokenRecord.GetDateTime("expires")
-		bufferedExpiry := expires.Add(-1 * time.Minute)
-		if time.Now().Before(bufferedExpiry.Time()) {
-			continue
-		}
-
-		clientRecord, err := c.app.FindRecordById("clients", tokenRecord.GetString("client"))
-		if err != nil {
-			return err
-		}
-
-		newToken, err := c.RefreshToken(ctx,
-			clientRecord.GetString("clientID"),
-			tokenRecord.GetString("refreshToken"),
-		)
+		err := c.refreshToken(ctx, tokenRecord)
 		if err != nil {
 			tokenRecord.Set("status", "invalid")
 			c.app.Save(tokenRecord)
-			continue
+			c.app.Logger().Error("failed to refresh token", "id", tokenRecord.Id, "error", err)
 		}
-
-		tokenRecord.Set("accessToken", newToken.AccessToken)
-		tokenRecord.Set("refreshToken", newToken.RefreshToken)
-		expiry := CalculateTokenExpiry(newToken.ExpiresIn)
-		tokenRecord.Set("expires", expiry)
-
-		if err := c.app.Save(tokenRecord); err != nil {
-			return err
-		}
-
-		slog.Info("refreshed token", "id", tokenRecord.Id)
 	}
 
+	return nil
+}
+
+func (c *Client) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.Record, clientRecord *core.Record) error {
+	account, err := c.app.FindRecordById("accounts", tokenRecord.GetString("account"))
+	if err != nil {
+		return err
+	}
+
+	newToken, err := c.Authorize(
+		ctx,
+		clientRecord.GetString("clientID"),
+		clientRecord.GetString("redirectURI"),
+		clientRecord.GetString("scope"),
+		account.GetString("email"),
+		account.GetString("password"),
+	)
+	if err != nil {
+		return err
+	}
+
+	tokenRecord.Set("status", "valid")
+	tokenRecord.Set("accessToken", newToken.AccessToken)
+	tokenRecord.Set("refreshToken", newToken.RefreshToken)
+	expiry := CalculateTokenExpiry(newToken.ExpiresIn)
+	tokenRecord.Set("expires", expiry)
+
+	if err := c.app.Save(tokenRecord); err != nil {
+		return err
+	}
+
+	slog.Info("fixed password grant token", "id", tokenRecord.Id)
+	return nil
+}
+
+func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) error {
+	expires := tokenRecord.GetDateTime("expires")
+	bufferedExpiry := expires.Add(-1 * time.Minute)
+	if time.Now().Before(bufferedExpiry.Time()) {
+		return nil
+	}
+
+	clientRecord, err := c.app.FindRecordById("clients", tokenRecord.GetString("client"))
+	if err != nil {
+		return err
+	}
+
+	newToken, err := c.RefreshToken(ctx,
+		clientRecord.GetString("clientID"),
+		tokenRecord.GetString("refreshToken"),
+	)
+	if err != nil {
+		return err
+	}
+
+	tokenRecord.Set("accessToken", newToken.AccessToken)
+	tokenRecord.Set("refreshToken", newToken.RefreshToken)
+	expiry := CalculateTokenExpiry(newToken.ExpiresIn)
+	tokenRecord.Set("expires", expiry)
+
+	if err := c.app.Save(tokenRecord); err != nil {
+		return err
+	}
+
+	slog.Info("refreshed token", "id", tokenRecord.Id)
 	return nil
 }
 
