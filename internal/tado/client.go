@@ -290,9 +290,12 @@ func (c *Client) RefreshExpiredTokens(ctx context.Context) error {
 			if client.GetString("type") == "passwordGrant" {
 				err := c.fixPasswordGrantToken(ctx, tokenRecord, client)
 				if err != nil {
-					tokenRecord.Set("status", "invalid")
-					c.app.Save(tokenRecord)
 					c.app.Logger().Error("failed to fix password grant token", "id", tokenRecord.Id, "error", err)
+				}
+			} else if client.GetString("type") == "deviceCode" {
+				err := c.fixDeviceCodeToken(tokenRecord)
+				if err != nil {
+					c.app.Logger().Error("failed to fix device code token", "id", tokenRecord.Id, "error", err)
 				}
 			}
 		}
@@ -337,6 +340,27 @@ func (c *Client) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.Re
 	}
 
 	slog.Info("fixed password grant token", "id", tokenRecord.Id)
+	return nil
+}
+
+func (c *Client) fixDeviceCodeToken(tokenRecord *core.Record) error {
+	// Check if last used day is before cutoff, if yes mark as valid.
+	// This means that the rate-limit has been reset since last use.
+	cutoff, err := GetRatelimtCutoff()
+	if err != nil {
+		return err
+	}
+
+	lastUsed := tokenRecord.GetDateTime("lastUsed")
+	if lastUsed.Time().Before(cutoff) {
+		tokenRecord.Set("status", "valid")
+		if err := c.app.Save(tokenRecord); err != nil {
+			return err
+		}
+		c.app.Logger().Info("enabled token because of rate-limit reset", "id", tokenRecord.Id)
+		return nil
+	}
+
 	return nil
 }
 

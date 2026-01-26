@@ -13,6 +13,7 @@ import (
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/s1adem4n/tado-api-proxy/internal/tado"
 )
 
 const (
@@ -79,7 +80,7 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 	var totalUsed int
 	var totalLimit int
 
-	cutoff, err := getRatelimtCutoff()
+	cutoff, err := tado.GetRatelimtCutoff()
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,7 @@ func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
 	}
 
 	usage := map[string]any{}
-	cutoff, err := getRatelimtCutoff()
+	cutoff, err := tado.GetRatelimtCutoff()
 	if err != nil {
 		return err
 	}
@@ -288,16 +289,4 @@ func extractHomeID(path string) string {
 		return matches[1]
 	}
 	return ""
-}
-
-func getRatelimtCutoff() (time.Time, error) {
-	loc, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	now := time.Now().In(loc)
-	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
-
-	return cutoff, nil
 }

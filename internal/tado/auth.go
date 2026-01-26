@@ -355,3 +355,15 @@ func GenerateState() (string, error) {
 	}
 	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
+
+func GetRatelimtCutoff() (time.Time, error) {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	now := time.Now().In(loc)
+	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
+
+	return cutoff, nil
+}
