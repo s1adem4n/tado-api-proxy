@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { pb } from './lib/pb';
+	import { PortalOutput } from '@/lib/components/portal';
 	import { AuthStore, navigation } from '@/lib/stores.svelte';
 	import { Home, Login, Statistics } from '@/pages';
 
@@ -14,6 +15,8 @@
 		}
 	});
 </script>
+
+<PortalOutput name="root" />
 
 {#if !authStore.isValid}
 	<h1 class="text-3xl font-semibold">tado API Proxy</h1>
