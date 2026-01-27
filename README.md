@@ -119,12 +119,12 @@ See these discussions for setup details:
 
 tado employs multiple detection methods from my research and testing:
 
-| Method                  | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| **IP-based limits**     | ~5,000 requests per IP                                   |
-| **Client-based limits** | Measured over 24 hours; excessive usage triggers bans    |
-| **Pattern detection**   | Regular intervals (e.g., every 30s) appear suspicious    |
-| **Fingerprinting**      | Unusual client signatures may result in account deletion |
+| Method                  | Description                                                                |
+| ----------------------- | -------------------------------------------------------------------------- |
+| **IP-based limits**     | Seems to be about 5,000 requests per IP                                    |
+| **Client-based limits** | Measured over a longer timefram (24 hours?); excessive usage triggers bans |
+| **Pattern detection**   | Regular intervals (e.g., every 30s) appear suspicious                      |
+| **Fingerprinting**      | Unusual client fingerprints result in account deletion                     |
 
 Account treatment varies based on tado device ownership, account age, and other factors. My test accounts (temporary emails, no tado devices) were often deleted within 24–72 hours.
 
