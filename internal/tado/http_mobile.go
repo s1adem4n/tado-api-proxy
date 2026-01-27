@@ -52,32 +52,6 @@ var (
 		"cookie",
 	}
 
-	// Header order for auth GET requests matching real iOS traffic
-	iosAuthGetHeaderOrder = []string{
-		"sec-fetch-dest",
-		"user-agent",
-		"accept",
-		"sec-fetch-site",
-		"sec-fetch-mode",
-		"accept-language",
-		"priority",
-		"accept-encoding",
-	}
-
-	// Header order for GET redirects matching real iOS traffic
-	iosRedirectHeaderOrder = []string{
-		"accept",
-		"sec-fetch-site",
-		"priority",
-		"sec-fetch-mode",
-		"user-agent",
-		"accept-language",
-		"sec-fetch-dest",
-		"referer",
-		"accept-encoding",
-		"cookie",
-	}
-
 	// Header order for token exchange requests matching real iOS traffic
 	iosTokenHeaderOrder = []string{
 		"accept",

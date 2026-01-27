@@ -113,28 +113,6 @@ var (
 		"te",
 	}
 
-	// Header order for Firefox auth GET requests matching real traffic
-	firefoxAuthGetHeaderOrder = []string{
-		"user-agent",
-		"accept",
-		"accept-language",
-		"accept-encoding",
-		"referer",
-		"dnt",
-		"sec-gpc",
-		"connection",
-		"cookie",
-		"upgrade-insecure-requests",
-		"sec-fetch-dest",
-		"sec-fetch-mode",
-		"sec-fetch-site",
-		"sec-fetch-user",
-		"priority",
-		"pragma",
-		"cache-control",
-		"te",
-	}
-
 	// Header order for Firefox token exchange requests matching real traffic
 	firefoxTokenHeaderOrder = []string{
 		"user-agent",
