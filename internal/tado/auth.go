@@ -314,5 +314,5 @@ func GetRatelimitCutoff() (time.Time, error) {
 		cutoff = cutoff.Add(-24 * time.Hour)
 	}
 
-	return cutoff, nil
+	return cutoff.UTC(), nil
 }
