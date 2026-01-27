@@ -9,7 +9,7 @@
 	);
 	const failedRequests = $derived(requests.filter((r) => r.status >= 400).length);
 	const successRate = $derived(
-		totalRequests > 0 ? Math.round((successfulRequests / totalRequests) * 100) : 0
+		totalRequests > 0 ? Math.floor((successfulRequests / totalRequests) * 100) : 0
 	);
 </script>
 

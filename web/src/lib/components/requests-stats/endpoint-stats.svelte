@@ -35,7 +35,7 @@
 				total: value.total,
 				successful: value.successful,
 				failed: value.failed,
-				successRate: Math.round((value.successful / value.total) * 100)
+				successRate: Math.floor((value.successful / value.total) * 100)
 			});
 		});
 

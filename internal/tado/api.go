@@ -2,10 +2,10 @@ package tado
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+
+	"github.com/imroc/req/v3"
 )
 
 const (
@@ -29,35 +29,28 @@ type MeResponse struct {
 	}
 }
 
-func (c *Client) GetMe(ctx context.Context, accessToken string) (*MeResponse, error) {
-	httpClient, err := c.createHTTPClient()
-	if err != nil {
-		return nil, err
+func (c *Client) GetMe(ctx context.Context, accessToken, platform string) (*MeResponse, error) {
+	var apiClient *req.Client
+	if platform == "mobile" {
+		apiClient = NewIOSSafariAPIClient()
+	} else {
+		apiClient = NewFirefoxAPIClient()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", BaseURL+"/api/v2/me", nil)
+	var meResp MeResponse
+	resp, err := apiClient.R().
+		SetContext(ctx).
+		SetHeader("authorization", "Bearer "+accessToken).
+		SetQueryParam("ngsw-bypass", "true").
+		SetSuccessResult(&meResp).
+		Get(BaseURL + "/api/v2/me")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get /me: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("User-Agent", UserAgent)
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(body)}
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: resp.String()}
 	}
 
-	var data MeResponse
-	decoder := json.NewDecoder(resp.Body)
-	if err := decoder.Decode(&data); err != nil {
-		return nil, err
-	}
-
-	return &data, nil
+	return &meResp, nil
 }

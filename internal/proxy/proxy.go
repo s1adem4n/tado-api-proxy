@@ -5,19 +5,15 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
 	"time"
 
+	"github.com/imroc/req/v3"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/s1adem4n/tado-api-proxy/internal/tado"
-)
-
-const (
-	UserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1"
 )
 
 type Handler struct {
@@ -76,11 +72,19 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		return e.BadRequestError("no valid tokens found", nil)
 	}
 
-	var validTokens []*core.Record
+	// Prefer deviceCode tokens as they don't get users banned
+	var preferredTokens []struct {
+		client *core.Record
+		token  *core.Record
+	}
+	var otherTokens []struct {
+		client *core.Record
+		token  *core.Record
+	}
 	var totalUsed int
 	var totalLimit int
 
-	cutoff, err := tado.GetRatelimtCutoff()
+	cutoff, err := tado.GetRatelimitCutoff()
 	if err != nil {
 		return err
 	}
@@ -107,7 +111,23 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		totalUsed += count
 
 		if count < client.GetInt("dailyLimit") {
-			validTokens = append(validTokens, token)
+			if client.GetString("type") == "deviceCode" {
+				preferredTokens = append(preferredTokens, struct {
+					client *core.Record
+					token  *core.Record
+				}{
+					client: client,
+					token:  token,
+				})
+			} else {
+				otherTokens = append(otherTokens, struct {
+					client *core.Record
+					token  *core.Record
+				}{
+					client: client,
+					token:  token,
+				})
+			}
 		}
 	}
 
@@ -118,52 +138,87 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 	}
 	e.Request.Body.Close()
 
-	url := url.URL{
+	targetURL := url.URL{
 		Scheme:   "https",
 		Host:     "my.tado.com",
 		Path:     e.Request.URL.Path,
 		RawQuery: e.Request.URL.RawQuery,
 	}
 
-	for _, token := range validTokens {
-		req, err := http.NewRequestWithContext(
-			e.Request.Context(),
-			e.Request.Method,
-			url.String(),
-			bytes.NewReader(bodyBytes),
-		)
-		if err != nil {
-			return err
+	validTokens := append(preferredTokens, otherTokens...)
+
+	for _, t := range validTokens {
+		var apiClient *req.Client
+		if t.client.GetString("platform") == "mobile" {
+			apiClient = tado.NewIOSSafariAPIClient()
+		} else {
+			apiClient = tado.NewFirefoxAPIClient()
 		}
 
-		req.Header = e.Request.Header.Clone()
-		req.Header.Del("X-Tado-Email")
-		req.Header.Set("Authorization", "Bearer "+token.GetString("accessToken"))
-		req.Header.Set("User-Agent", UserAgent)
+		// Create request with iOS Safari fingerprinting
+		request := apiClient.R().
+			SetContext(e.Request.Context()).
+			SetHeader("authorization", "Bearer "+t.token.GetString("accessToken"))
 
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return err
+		// Add query param to match real traffic
+		if targetURL.RawQuery != "" {
+			targetURL.RawQuery += "&ngsw-bypass=true"
+		} else {
+			targetURL.RawQuery = "ngsw-bypass=true"
 		}
 
-		if resp.StatusCode == http.StatusUnauthorized {
-			token.Set("used", time.Now())
-			token.Set("status", "invalid")
-			if err := h.app.Save(token); err != nil {
-				resp.Body.Close()
-				return err
-			}
-			resp.Body.Close()
+		// Set content type if present in original request
+		if ct := e.Request.Header.Get("Content-Type"); ct != "" {
+			request.SetHeader("content-type", ct)
+		}
+
+		// Set body if present
+		if len(bodyBytes) > 0 {
+			request.SetBody(bytes.NewReader(bodyBytes))
+		}
+
+		var resp *req.Response
+
+		switch e.Request.Method {
+		case http.MethodGet:
+			resp, err = request.Get(targetURL.String())
+		case http.MethodPost:
+			resp, err = request.Post(targetURL.String())
+		case http.MethodPut:
+			resp, err = request.Put(targetURL.String())
+		case http.MethodDelete:
+			resp, err = request.Delete(targetURL.String())
+		case http.MethodPatch:
+			resp, err = request.Patch(targetURL.String())
+		default:
+			return e.BadRequestError("unsupported method", nil)
+		}
+
+		if err != nil {
+			slog.Error("proxy request failed", "error", err)
 			continue
 		}
 
-		token.Set("used", time.Now())
-		if err := h.app.Save(token); err != nil {
-			resp.Body.Close()
+		if resp.StatusCode == http.StatusUnauthorized {
+			t.token.Set("used", time.Now())
+			t.token.Set("status", "invalid")
+			if err := h.app.Save(t.token); err != nil {
+				return err
+			}
+			continue
+		}
+
+		t.token.Set("used", time.Now())
+		if err := h.app.Save(t.token); err != nil {
 			return err
 		}
 
-		maps.Copy(e.Response.Header(), resp.Header)
+		// Copy response headers
+		for k, v := range resp.Header {
+			for _, vv := range v {
+				e.Response.Header().Add(k, vv)
+			}
+		}
 
 		e.Response.Header().Set(
 			"Ratelimit",
@@ -176,8 +231,7 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 
 		e.Response.WriteHeader(resp.StatusCode)
 
-		_, err = io.Copy(e.Response, resp.Body)
-		resp.Body.Close()
+		_, err = e.Response.Write(resp.Bytes())
 		if err != nil {
 			return err
 		}
@@ -189,9 +243,9 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 
 		requestRecord := core.NewRecord(requestsCollection)
 
-		requestRecord.Set("token", token.Id)
+		requestRecord.Set("token", t.token.Id)
 		requestRecord.Set("method", e.Request.Method)
-		requestRecord.Set("url", url.String())
+		requestRecord.Set("url", targetURL.String())
 		requestRecord.Set("status", resp.StatusCode)
 		if err := h.app.Save(requestRecord); err != nil {
 			slog.Error("failed to log request", "error", err)
@@ -218,7 +272,7 @@ func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
 	}
 
 	usage := map[string]any{}
-	cutoff, err := tado.GetRatelimtCutoff()
+	cutoff, err := tado.GetRatelimitCutoff()
 	if err != nil {
 		return err
 	}

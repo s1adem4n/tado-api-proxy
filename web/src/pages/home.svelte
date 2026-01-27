@@ -6,6 +6,7 @@
 	import { MultipleSubscription, navigation } from '@/lib/stores.svelte';
 	import ChartBarIcon from '~icons/lucide/chart-bar';
 	import LogOutIcon from '~icons/lucide/log-out';
+	import WaypointsIcon from '~icons/lucide/waypoints';
 
 	const accounts = new MultipleSubscription(pb.collection('accounts'));
 	const homes = new MultipleSubscription(pb.collection('homes'));
@@ -14,8 +15,11 @@
 	const codes = new MultipleSubscription(pb.collection('codes'));
 </script>
 
-<header class="flex items-center justify-between">
-	<h1 class="text-3xl font-semibold">Tado API Proxy</h1>
+<header class="flex items-center justify-between border-b border-base-content/5 pb-2">
+	<div class="flex items-center gap-4">
+		<WaypointsIcon class="h-8 w-8 text-primary" />
+		<h1 class="hidden text-3xl font-semibold sm:block">tado API Proxy</h1>
+	</div>
 	<div class="flex items-center gap-1">
 		<button class="btn btn-ghost btn-sm" onclick={() => navigation.navigate('/statistics')}>
 			<ChartBarIcon class="h-4 w-4" />

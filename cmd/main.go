@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"strings"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/pocketbase/pocketbase"
@@ -66,6 +67,15 @@ func main() {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		seedClients(app)
 
+		se.Router.Bind(apis.Gzip())
+		se.Router.BindFunc(func(e *core.RequestEvent) error {
+			if strings.HasPrefix(e.Request.URL.Path, "/assets") {
+				e.Response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+
+			return e.Next()
+		})
+
 		subFS, err := fs.Sub(web.FS, "dist")
 		if err != nil {
 			return err
@@ -86,6 +96,7 @@ func seedClients(app core.App) {
 			"name":        "Official API",
 			"clientID":    "1bb50063-6b0c-4d11-bd99-387f4a91cc46",
 			"type":        "deviceCode",
+			"platform":    "web",
 			"redirectURI": "https://login.tado.com/oauth2/device",
 			"scope":       "offline_access",
 			"dailyLimit":  5000,
@@ -94,17 +105,19 @@ func seedClients(app core.App) {
 			"name":        "Web App",
 			"clientID":    "af44f89e-ae86-4ebe-905f-6bf759cf6473",
 			"type":        "passwordGrant",
+			"platform":    "web",
 			"redirectURI": "https://app.tado.com",
 			"scope":       "home.user offline_access",
-			"dailyLimit":  3000,
+			"dailyLimit":  1000,
 		},
 		{
 			"name":        "Mobile App",
 			"clientID":    "eec8b609-9e2d-4403-9336-4f62a475271e",
 			"type":        "passwordGrant",
+			"platform":    "mobile",
 			"redirectURI": "tado://auth/redirect",
 			"scope":       "home.user offline_access",
-			"dailyLimit":  3000,
+			"dailyLimit":  1000,
 		},
 	}
 

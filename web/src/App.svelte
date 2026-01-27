@@ -16,7 +16,7 @@
 </script>
 
 {#if !authStore.isValid}
-	<h1 class="text-3xl font-semibold">Tado API Proxy</h1>
+	<h1 class="text-3xl font-semibold">tado API Proxy</h1>
 	<Login />
 {:else if navigation.path === '/'}
 	<Home />

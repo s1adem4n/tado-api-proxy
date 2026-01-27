@@ -18,9 +18,15 @@
 		clients: Client[];
 	} = $props();
 
-	const sortedTokens = $derived(tokens.toSorted((a, b) => b.used.localeCompare(a.used)));
+	const sortedTokens = $derived(
+		tokens.toSorted((a, b) => {
+			const accountCompare = a.account.localeCompare(b.account);
+			if (accountCompare !== 0) return accountCompare;
+			return a.client.localeCompare(b.client);
+		})
+	);
 
-	let ratelimits: Ratelimits = $state({});
+	let ratelimits: Ratelimits | null = $state({});
 	$effect(() => {
 		tokens;
 		fetchRatelimits().then((data) => {
@@ -48,7 +54,7 @@
 				{#each sortedTokens as token}
 					{@const account = accounts.find((account) => account.id === token.account)}
 					{@const client = clients.find((client) => client.id === token.client)}
-					{@const ratelimitDetails = ratelimits[token.id]}
+					{@const ratelimitDetails = ratelimits?.[token.id]}
 
 					{#if account && client && ratelimitDetails}
 						<TokensTableRow {token} {account} {client} {ratelimitDetails} />

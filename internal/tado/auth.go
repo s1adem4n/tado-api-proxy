@@ -5,9 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,6 +16,7 @@ const (
 	TokenURL      = "https://login.tado.com/oauth2/token"
 	AuthorizeURL  = "https://login.tado.com/oauth2/authorize"
 	DeviceAuthURL = "https://login.tado.com/oauth2/device_authorize"
+	TenantID      = "1d543ad5-a8ac-4704-b9e2-26838b4d6513"
 )
 
 type TokenResponse struct {
@@ -33,6 +32,7 @@ func (c *Client) Authorize(
 	ctx context.Context,
 	clientID, redirectURI, scope,
 	email, password string,
+	platform string,
 ) (*TokenResponse, error) {
 	verifier, err := GenerateCodeVerifier()
 	if err != nil {
@@ -45,11 +45,10 @@ func (c *Client) Authorize(
 		return nil, err
 	}
 
-	httpClient, err := c.createHTTPClient()
-	if err != nil {
-		return nil, err
-	}
+	// Create auth client with appropriate fingerprint
+	authClient := NewAuthClient(platform)
 
+	// Build initial authorize URL
 	initURL, err := url.Parse(AuthorizeURL)
 	if err != nil {
 		return nil, err
@@ -65,69 +64,80 @@ func (c *Client) Authorize(
 	q.Set("state", state)
 	initURL.RawQuery = q.Encode()
 
-	// Get the cookies
-	req, err := http.NewRequestWithContext(ctx, "GET", initURL.String(), nil)
+	// Step 1: GET the authorize page to get cookies
+	resp, err := authClient.R().
+		SetContext(ctx).
+		SetHeader("sec-fetch-site", "none").
+		Get(initURL.String())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get authorize page: %w", err)
 	}
-	req.Header.Set("User-Agent", UserAgent)
 
-	resp, err := httpClient.Do(req)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get authorize page (%d)", resp.StatusCode)
+	}
+
+	// Step 2: POST the login form
+	// Build form data in exact order matching real traffic
+	formData := url.Values{}
+	formData.Set("captcha_token", "")
+	formData.Set("client_id", clientID)
+	formData.Set("code_challenge", challenge)
+	formData.Set("code_challenge_method", "S256")
+	if platform == "web" {
+		formData.Set("metaData.device.name", "Linux Firefox")
+	} else {
+		formData.Set("metaData.device.name", "iPhone/iPod Safari")
+	}
+	formData.Set("metaData.device.type", "BROWSER")
+	formData.Set("nonce", "")
+	formData.Set("oauth_context", "")
+	formData.Set("pendingIdPLinkId", "")
+	formData.Set("redirect_uri", redirectURI)
+	formData.Set("response_mode", "")
+	formData.Set("response_type", "code")
+	formData.Set("scope", scope)
+	formData.Set("state", state)
+	formData.Set("tenantId", TenantID)
+	formData.Set("timezone", "Europe/Berlin")
+	formData.Set("user_code", "")
+	formData.Set("userVerifyingPlatformAuthenticatorAvailable", "true")
+	formData.Set("loginId", email)
+	formData.Set("password", password)
+
+	resp, err = authClient.R().
+		SetContext(ctx).
+		SetHeader("content-type", "application/x-www-form-urlencoded").
+		SetHeader("origin", "https://login.tado.com").
+		SetHeader("referer", "https://login.tado.com/").
+		SetBodyString(formData.Encode()).
+		Post(AuthorizeURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authorization failed: %w", err)
 	}
-	resp.Body.Close()
-
-	// POST /oauth2/authorize
-	data := url.Values{}
-	data.Set("client_id", clientID)
-	data.Set("code_challenge", challenge)
-	data.Set("code_challenge_method", "S256")
-	data.Set("redirect_uri", redirectURI)
-	data.Set("response_type", "code")
-	data.Set("scope", scope)
-	data.Set("state", state)
-	data.Set("loginId", email)
-	data.Set("password", password)
-
-	req, err = http.NewRequestWithContext(ctx, "POST", AuthorizeURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", UserAgent)
-
-	resp, err = httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("authorize failed (%d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("authorization failed (%d): %s", resp.StatusCode, resp.String())
 	}
 
-	location := resp.Header.Get("Location")
+	// Step 3: Follow redirects until we reach the redirect URI
+	location := resp.GetHeader("Location")
 	for location != "" && !strings.HasPrefix(location, redirectURI) {
-		req, err = http.NewRequestWithContext(ctx, "GET", c.absURL(location), nil)
+		absLocation := c.absURL(location)
+
+		resp, err = authClient.R().
+			SetContext(ctx).
+			SetHeader("referer", "https://login.tado.com/").
+			Get(absLocation)
 		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("User-Agent", UserAgent)
-
-		resp, err = httpClient.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusFound {
-			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("redirect failed (%d): %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("redirect failed: %w", err)
 		}
 
-		location = resp.Header.Get("Location")
+		if resp.StatusCode != http.StatusFound && resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("redirect failed (%d): %s", resp.StatusCode, resp.String())
+		}
+
+		location = resp.GetHeader("Location")
 	}
 
 	if location == "" {
@@ -144,52 +154,34 @@ func (c *Client) Authorize(
 		return nil, fmt.Errorf("no code in redirect URI")
 	}
 
-	// Extract code from location
-	locationURL, err = url.Parse(location)
-	if err != nil {
-		return nil, err
-	}
-	code = locationURL.Query().Get("code")
-	if code == "" {
-		return nil, fmt.Errorf("no code in redirect URI")
-	}
+	// Step 4: Exchange code for token using the token client
+	tokenClient := NewTokenClient(platform)
 
-	// Exchange code for token
-	data = url.Values{}
-	data.Set("client_id", clientID)
-	data.Set("code", code)
-	data.Set("grant_type", "authorization_code")
-	data.Set("code_verifier", verifier)
-	data.Set("redirect_uri", redirectURI)
+	// Build token form data matching real traffic order
+	tokenData := url.Values{}
+	tokenData.Set("code", code)
+	tokenData.Set("code_verifier", verifier)
+	tokenData.Set("redirect_uri", redirectURI)
+	tokenData.Set("scope", scope)
+	tokenData.Set("grant_type", "authorization_code")
+	tokenData.Set("client_id", clientID)
 
-	req, err = http.NewRequestWithContext(ctx, "POST", TokenURL, strings.NewReader(data.Encode()))
+	var tokenResp TokenResponse
+	resp, err = tokenClient.R().
+		SetContext(ctx).
+		SetHeader("content-type", "application/x-www-form-urlencoded").
+		SetBodyString(tokenData.Encode()).
+		SetSuccessResult(&tokenResp).
+		Post(TokenURL)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", UserAgent)
-
-	resp, err = httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("token exchange failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange failed (%d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token exchange failed (%d): %s", resp.StatusCode, resp.String())
 	}
 
-	var tr TokenResponse
-	if err := json.Unmarshal(body, &tr); err != nil {
-		return nil, err
-	}
-
-	return &tr, nil
+	return &tokenResp, nil
 }
 
 type DeviceAuthResponse struct {
@@ -202,10 +194,7 @@ type DeviceAuthResponse struct {
 }
 
 func (c *Client) DeviceAuthorize(ctx context.Context, clientID, scope string) (*DeviceAuthResponse, error) {
-	httpClient, err := c.createHTTPClient()
-	if err != nil {
-		return nil, err
-	}
+	tokenClient := NewIOSSafariTokenClient()
 
 	authURL, err := url.Parse(DeviceAuthURL)
 	if err != nil {
@@ -217,116 +206,72 @@ func (c *Client) DeviceAuthorize(ctx context.Context, clientID, scope string) (*
 	q.Set("scope", scope)
 	authURL.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", authURL.String(), nil)
+	var deviceResp DeviceAuthResponse
+	resp, err := tokenClient.R().
+		SetContext(ctx).
+		SetSuccessResult(&deviceResp).
+		Post(authURL.String())
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", UserAgent)
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("device authorize failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("device authorize failed (%d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("device authorize failed (%d): %s", resp.StatusCode, resp.String())
 	}
 
-	var dar DeviceAuthResponse
-	if err := json.Unmarshal(body, &dar); err != nil {
-		return nil, err
-	}
-
-	return &dar, nil
+	return &deviceResp, nil
 }
 
 func (c *Client) ExchangeDeviceCode(ctx context.Context, clientID, deviceCode string) (*TokenResponse, error) {
-	httpClient, err := c.createHTTPClient()
-	if err != nil {
-		return nil, err
-	}
+	tokenClient := NewIOSSafariTokenClient()
 
 	data := url.Values{}
 	data.Set("client_id", clientID)
 	data.Set("device_code", deviceCode)
 	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
 
-	req, err := http.NewRequestWithContext(ctx, "POST", TokenURL, strings.NewReader(data.Encode()))
+	var tokenResp TokenResponse
+	resp, err := tokenClient.R().
+		SetContext(ctx).
+		SetHeader("content-type", "application/x-www-form-urlencoded").
+		SetBodyString(data.Encode()).
+		SetSuccessResult(&tokenResp).
+		Post(TokenURL)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", UserAgent)
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("device token request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// Device flow returns error while pending
-		return nil, fmt.Errorf("device token request failed (%d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("device token request failed (%d): %s", resp.StatusCode, resp.String())
 	}
 
-	var tr TokenResponse
-	if err := json.Unmarshal(body, &tr); err != nil {
-		return nil, err
-	}
-
-	return &tr, nil
+	return &tokenResp, nil
 }
 
-func (c *Client) RefreshToken(ctx context.Context, clientID, refreshToken string) (*TokenResponse, error) {
-	httpClient, err := c.createHTTPClient()
-	if err != nil {
-		return nil, err
-	}
+func (c *Client) RefreshToken(ctx context.Context, clientID, refreshToken, platform string) (*TokenResponse, error) {
+	tokenClient := NewTokenClient(platform)
 
 	data := url.Values{}
 	data.Set("client_id", clientID)
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", refreshToken)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", TokenURL, strings.NewReader(data.Encode()))
+	var tokenResp TokenResponse
+	resp, err := tokenClient.R().
+		SetContext(ctx).
+		SetHeader("content-type", "application/x-www-form-urlencoded").
+		SetBodyString(data.Encode()).
+		SetSuccessResult(&tokenResp).
+		Post(TokenURL)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", UserAgent)
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("refresh token failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(body)}
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: resp.String()}
 	}
 
-	var tr TokenResponse
-	if err := json.Unmarshal(body, &tr); err != nil {
-		return nil, err
-	}
-
-	return &tr, nil
+	return &tokenResp, nil
 }
 
 func CalculateTokenExpiry(expiresIn int) time.Time {
@@ -356,7 +301,7 @@ func GenerateState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
 
-func GetRatelimtCutoff() (time.Time, error) {
+func GetRatelimitCutoff() (time.Time, error) {
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
 		return time.Time{}, err
@@ -364,6 +309,10 @@ func GetRatelimtCutoff() (time.Time, error) {
 
 	now := time.Now().In(loc)
 	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
+
+	if now.Before(cutoff) {
+		cutoff = cutoff.Add(-24 * time.Hour)
+	}
 
 	return cutoff, nil
 }

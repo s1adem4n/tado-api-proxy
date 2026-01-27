@@ -41,7 +41,7 @@
 		</span>
 	</td>
 	<td>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-col gap-1">
 			<progress
 				class="progress-sm progress w-16"
 				value={ratelimitDetails.used}

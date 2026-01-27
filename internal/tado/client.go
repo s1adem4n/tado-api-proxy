@@ -3,16 +3,10 @@ package tado
 import (
 	"context"
 	"log/slog"
-	"net/http"
-	"net/http/cookiejar"
 	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
-)
-
-const (
-	UserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1"
 )
 
 type Client struct {
@@ -83,20 +77,24 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 	}
 
 	var accessToken string
+	var lastClientName string
 
 	for _, client := range clients {
+		clientName := client.GetString("name")
 		token, err := c.Authorize(ctx,
 			client.GetString("clientID"),
 			client.GetString("redirectURI"),
 			client.GetString("scope"),
 			account.GetString("email"),
 			account.GetString("password"),
+			clientName,
 		)
 		if err != nil {
 			return err
 		}
 
 		accessToken = token.AccessToken
+		lastClientName = clientName
 
 		tokenRecord := core.NewRecord(tokensCollection)
 		tokenRecord.Set("account", account.Id)
@@ -113,7 +111,7 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 		}
 	}
 
-	me, err := c.GetMe(ctx, accessToken)
+	me, err := c.GetMe(ctx, accessToken, lastClientName)
 	if err != nil {
 		return err
 	}
@@ -215,7 +213,7 @@ func (c *Client) WaitForDeviceAuthorization(
 				continue
 			}
 
-			me, err := c.GetMe(ctx, token.AccessToken)
+			me, err := c.GetMe(ctx, token.AccessToken, clientRecord.GetString("name"))
 			if err != nil {
 				return err
 			}
@@ -324,6 +322,7 @@ func (c *Client) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.Re
 		clientRecord.GetString("scope"),
 		account.GetString("email"),
 		account.GetString("password"),
+		clientRecord.GetString("name"),
 	)
 	if err != nil {
 		return err
@@ -346,7 +345,7 @@ func (c *Client) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.Re
 func (c *Client) fixDeviceCodeToken(tokenRecord *core.Record) error {
 	// Check if last used day is before cutoff, if yes mark as valid.
 	// This means that the rate-limit has been reset since last use.
-	cutoff, err := GetRatelimtCutoff()
+	cutoff, err := GetRatelimitCutoff()
 	if err != nil {
 		return err
 	}
@@ -379,6 +378,7 @@ func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) err
 	newToken, err := c.RefreshToken(ctx,
 		clientRecord.GetString("clientID"),
 		tokenRecord.GetString("refreshToken"),
+		clientRecord.GetString("name"),
 	)
 	if err != nil {
 		return err
@@ -395,21 +395,6 @@ func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) err
 
 	slog.Info("refreshed token", "id", tokenRecord.Id)
 	return nil
-}
-
-func (c *Client) createHTTPClient() (*http.Client, error) {
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &http.Client{
-		Timeout: 30 * time.Second,
-		Jar:     jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}, nil
 }
 
 func (c *Client) absURL(loc string) string {

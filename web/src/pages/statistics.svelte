@@ -46,7 +46,7 @@
 	const accounts = new MultipleSubscription(pb.collection('accounts'));
 </script>
 
-<header class="flex items-center justify-between">
+<header class="flex items-center justify-between border-b border-base-content/5 pb-2">
 	<div class="flex items-center gap-2">
 		<button
 			class="btn btn-square btn-ghost btn-sm"
@@ -55,7 +55,7 @@
 		>
 			<ArrowLeftIcon class="h-4 w-4" />
 		</button>
-		<h1 class="text-3xl font-semibold">Request Statistics</h1>
+		<h1 class="text-2xl font-semibold sm:text-3xl">Request Statistics</h1>
 	</div>
 
 	<button class="btn btn-ghost btn-sm" onclick={() => pb.authStore.clear()}>
