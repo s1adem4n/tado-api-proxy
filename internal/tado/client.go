@@ -2,7 +2,6 @@ package tado
 
 import (
 	"context"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -47,7 +46,7 @@ func (c *Client) Register() {
 	c.app.Cron().MustAdd("refresh-tokens", "* * * * *", func() {
 		err := c.RefreshExpiredTokens(context.Background())
 		if err != nil {
-			slog.Error("failed to refresh tokens", "error", err)
+			c.app.Logger().Error("failed to refresh tokens", "error", err)
 		}
 	})
 
@@ -338,7 +337,7 @@ func (c *Client) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.Re
 		return err
 	}
 
-	slog.Info("fixed password grant token", "id", tokenRecord.Id)
+	c.app.Logger().Info("fixed password grant token", "id", tokenRecord.Id)
 	return nil
 }
 
@@ -365,7 +364,7 @@ func (c *Client) fixDeviceCodeToken(tokenRecord *core.Record) error {
 
 func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) error {
 	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-1 * time.Minute)
+	bufferedExpiry := expires.Add(-2 * time.Minute)
 	if time.Now().Before(bufferedExpiry.Time()) {
 		return nil
 	}
@@ -393,7 +392,7 @@ func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) err
 		return err
 	}
 
-	slog.Info("refreshed token", "id", tokenRecord.Id)
+	c.app.Logger().Info("refreshed token", "id", tokenRecord.Id)
 	return nil
 }
 
