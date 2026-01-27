@@ -61,7 +61,7 @@ SUPERUSER_EMAIL=admin@example.com SUPERUSER_PASSWORD=changeme \
 ### 3. Authorize the Official API (Highly Recommended)
 
 > [!IMPORTANT]
-> **This step significantly reduces your risk of being banned.** The official API client has a separate, more generous rate limit. The proxy prioritizes routing requests through the official API when available.
+> **This step significantly reduces your risk of being banned.** The official API client has a separate rate limit, which is approved by tado. The proxy prioritizes routing requests through the official API when available to reduce the risk of getting banned.
 
 1. In the web UI, click **Start Authorization** in the "Authorize Official API" section
 2. Complete the authorization flow in your browser
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v2/me
 ```
 
 > [!TIP]
-> Use a secondary account instead of your main tado account. Create a new account, invite it to your home, and add it to the proxy. This can protect your primary account from potential bans (but it is not guaranteed).
+> Use a secondary account instead of your main tado account. Create a new account, invite it to your home, and add it to the proxy. This can protect your primary account from potential bans (but it is not guaranteed). See the [Reducing Ban Risks](#reducing-ban-risk) section for more tips on avoiding bans!
 
 ## API Usage
 
@@ -136,7 +136,7 @@ For the most stable configuration:
 
 2. **Add multiple accounts** – Two accounts sharing your home seems to be the sweet spot. The proxy balances requests across their clients automatically.
 
-3. **Use secondary accounts** – Protect your main account by using secondary accounts for the proxy.
+3. **Use secondary accounts** – This can protect your main account to some degree.
 
 <details>
 <summary><strong>How to create extra accounts</strong></summary>
@@ -152,7 +152,7 @@ For the most stable configuration:
 
 ### Tips for Developers
 
-If you're building tools that use this proxy, please use this tips to decrease detection possibility:
+If you're building tools that use this proxy, please use these tips to decrease detection possibility:
 
 - **Randomize request intervals** – Add jitter instead of fixed polling
 - **Reduce overnight activity** – Lower request frequency during sleep hours
