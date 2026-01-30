@@ -116,6 +116,17 @@ Returns:
 }
 ```
 
+### Rate limit header
+
+The proxy returns the `Ratelimit` and `Ratelimit-Policy` with the combined rate limit of all tokens you have added. It is in the same format as in the official tado API, e. g.:
+
+```
+Ratelimit: "perday";r=4999
+Ratelimit-Policy: "perday";q=5000;w=86400
+```
+
+> `r` is the remaining requests, `q` is the total allowed requests, and `w` is the time window in seconds.
+
 ### API Documentation
 
 OpenAPI docs are available at http://localhost:8080/docs
