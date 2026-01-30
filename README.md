@@ -2,6 +2,8 @@
 
 A self-hosted proxy for the tado API that manages and rotates OAuth tokens automatically. Includes a web UI for account management and request statistics.
 
+[Looking for the legacy version?](https://github.com/s1adem4n/tado-api-proxy/tree/legacy)
+
 > [!WARNING]
 > **Use at your own risk.** tado actively detects and bans accounts with high request volumes from third-party tools. While this proxy implements measures to reduce detection, account bans are still possible.
 
