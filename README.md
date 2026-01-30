@@ -124,7 +124,22 @@ OpenAPI docs are available at http://localhost:8080/docs
 
 ### Home Assistant
 
-TODO
+#### Using tado_hijack
+
+[tado_hijack](https://github.com/banter240/tado_hijack) supports using the proxy natively by changing an option. It also implements some obfuscation to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
+
+#### Using the official integration
+
+The official tado integration in Home Assistant does not support changing the API url to a custom one, so you won't be able to route the requests through the proxy. Some users have reported success with changing the source code of the extension though:
+
+<details>
+<summary><strong>Changing the base URL in the source code</strong></summary>
+
+First locate the `PyTado` package files.
+For Docker they are at `/usr/local/lib/python3.13/site-packages/PyTado/http.py`.
+Change the row `MY_API = "http://my.tado.com/api/v2/"` to `MY_API = "http://localhost:8080/api/v2/"` (or your proxy URL). Restart Home Assistant and it should now use the proxy for API calls.
+
+</details>
 
 ### Homebridge
 
