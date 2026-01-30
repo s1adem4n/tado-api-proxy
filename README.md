@@ -56,6 +56,9 @@ SUPERUSER_EMAIL=admin@example.com SUPERUSER_PASSWORD=changeme \
 
 ### 2. Add Your Account
 
+> [!TIP]
+> Use a secondary account instead of your main tado account. Create a new account, invite it to your home, and add it to the proxy. This can protect your primary account from potential bans (but it is not guaranteed). See the [Reducing Ban Risks](#reducing-ban-risk) section for more tips on avoiding bans!
+
 1. Open http://localhost:8080 and log in with your superuser credentials
 2. Add a tado account (email + password)
 3. Tokens for the web and mobile clients are created automatically
@@ -77,8 +80,6 @@ Replace `https://my.tado.com` with your proxy URL:
 curl http://localhost:8080/api/v2/me
 ```
 
-> [!TIP]
-> Use a secondary account instead of your main tado account. Create a new account, invite it to your home, and add it to the proxy. This can protect your primary account from potential bans (but it is not guaranteed). See the [Reducing Ban Risks](#reducing-ban-risk) section for more tips on avoiding bans!
 
 ## API Usage
 
