@@ -141,7 +141,7 @@ OpenAPI docs are available at http://localhost:8080/docs
 
 #### Using the official integration
 
-The official tado integration in Home Assistant does not support changing the API url to a custom one, so you won't be able to route the requests through the proxy. Some users have reported success with changing the source code of the extension though:
+The official tado integration in Home Assistant does not support changing the API url to a custom one, so you won't be able to route the requests through the proxy by changing an option. Some users have reported success with changing the source code of the extension though:
 
 <details>
 <summary><strong>Changing the base URL in the source code</strong></summary>
