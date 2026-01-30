@@ -30,6 +30,7 @@ func (h *Handler) Register() {
 	h.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		e.Router.Any("/api/v2/{path...}", h.HandleProxyRequest)
 		e.Router.GET("/api/ratelimits", h.HandleRatelimitsRequest)
+		e.Router.GET("/api/stats", h.HandleStatsRequest)
 
 		return e.Next()
 	})

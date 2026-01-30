@@ -96,6 +96,24 @@ Use the `X-Tado-Email` header to force a specific account:
 curl -H "X-Tado-Email: account@example.com" http://localhost:8080/api/v2/me
 ```
 
+### Request Statistics
+
+Get request statistics:
+
+```sh
+curl http://localhost:8080/api/stats
+```
+
+Returns:
+
+```json
+{
+  "today": 123,
+  "last_hour": 45,
+  "last_24_hours": 678
+}
+```
+
 ### API Documentation
 
 OpenAPI docs are available at http://localhost:8080/docs
