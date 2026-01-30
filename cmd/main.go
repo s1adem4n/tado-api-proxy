@@ -1,87 +1,154 @@
 package main
 
 import (
-	"context"
-	"errors"
+	"io/fs"
+	"log"
 	"log/slog"
-	"net/http"
 	"os"
+	"strings"
 
-	"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
-	"github.com/s1adem4n/tado-api-proxy/internal/config"
-	"github.com/s1adem4n/tado-api-proxy/internal/docs"
-	"github.com/s1adem4n/tado-api-proxy/internal/logger"
 	"github.com/s1adem4n/tado-api-proxy/internal/proxy"
-	"github.com/s1adem4n/tado-api-proxy/internal/stats"
-	"github.com/s1adem4n/tado-api-proxy/pkg/auth"
+	"github.com/s1adem4n/tado-api-proxy/internal/tado"
+	_ "github.com/s1adem4n/tado-api-proxy/migrations"
+	"github.com/s1adem4n/tado-api-proxy/web"
 )
 
 func main() {
-	godotenv.Load()
+	app := pocketbase.New()
 
-	ctx := context.Background()
-
-	config, err := config.Parse()
-	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
-	}
-
-	logger.Setup(config.LogLevel)
-
-	// Select auth provider based on configuration
-	var authProvider auth.AuthProvider
-	switch config.AuthMethod {
-	case "browser":
-		slog.Info("using browser authentication method")
-		authProvider = auth.NewBrowserAuth(&auth.BrowserAuthConfig{
-			ChromeExecutable: config.ChromeExecutable,
-			Headless:         config.Headless,
-			CookiesPath:      config.CookiesPath,
-			ClientID:         config.ClientID,
-			Email:            config.Email,
-			Password:         config.Password,
-			Timeout:          config.BrowserTimeout,
-		})
-	case "mobile":
-		slog.Info("using mobile authentication method")
-		authProvider = auth.NewMobileAuth(&auth.MobileAuthConfig{
-			Email:    config.Email,
-			Password: config.Password,
-		})
-	default:
-		slog.Error("invalid auth method", "method", config.AuthMethod)
-		os.Exit(1)
-	}
-
-	authHandler := auth.NewHandler(authProvider, &auth.HandlerConfig{
-		TokenPath: config.TokenPath,
-		ClientID:  config.ClientID,
+	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+		Automigrate: app.IsDev(),
 	})
 
-	slog.Info("loading token before starting server")
-	err = authHandler.Init(ctx)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			slog.Error("browser authentication timed out during initialization, please try increasing the BROWSER_TIMEOUT, or set LOG_LEVEL=debug to investigate further")
-			os.Exit(1)
+	tadoClient := tado.NewClient(app)
+	tadoClient.Register()
+
+	proxyHandler := proxy.NewHandler(app)
+	proxyHandler.Register()
+
+	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
+		err := e.Next()
+		if err != nil {
+			return err
 		}
-		slog.Error("failed to initialize auth handler", "error", err)
-		os.Exit(1)
+
+		slog.SetDefault(app.Logger())
+
+		superuserCount, err := app.CountRecords("_superusers")
+		if err != nil {
+			return err
+		}
+
+		if superuserCount == 0 {
+			app.Logger().Info("No superusers found, creating one using environment variables")
+			collection, err := app.FindCollectionByNameOrId("_superusers")
+			if err != nil {
+				return err
+			}
+
+			superuser := core.NewRecord(collection)
+			superuser.SetEmail(os.Getenv("SUPERUSER_EMAIL"))
+			superuser.SetPassword(os.Getenv("SUPERUSER_PASSWORD"))
+
+			if err := app.Save(superuser); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		seedClients(app)
+
+		se.Router.Bind(apis.Gzip())
+		se.Router.BindFunc(func(e *core.RequestEvent) error {
+			if strings.HasPrefix(e.Request.URL.Path, "/assets") {
+				e.Response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+
+			return e.Next()
+		})
+
+		subFS, err := fs.Sub(web.FS, "dist")
+		if err != nil {
+			return err
+		}
+		se.Router.Any("/{path...}", apis.Static(subFS, true))
+
+		return se.Next()
+	})
+
+	if err := app.Start(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func seedClients(app core.App) {
+	clients := []map[string]any{
+		{
+			"name":        "Official API",
+			"clientID":    "1bb50063-6b0c-4d11-bd99-387f4a91cc46",
+			"type":        "deviceCode",
+			"platform":    "web",
+			"redirectURI": "https://login.tado.com/oauth2/device",
+			"scope":       "offline_access",
+			"dailyLimit":  5000,
+		},
+		{
+			"name":        "Web App",
+			"clientID":    "af44f89e-ae86-4ebe-905f-6bf759cf6473",
+			"type":        "passwordGrant",
+			"platform":    "web",
+			"redirectURI": "https://app.tado.com",
+			"scope":       "home.user offline_access",
+			"dailyLimit":  1000,
+		},
+		{
+			"name":        "Mobile App",
+			"clientID":    "eec8b609-9e2d-4403-9336-4f62a475271e",
+			"type":        "passwordGrant",
+			"platform":    "mobile",
+			"redirectURI": "tado://auth/redirect",
+			"scope":       "home.user offline_access",
+			"dailyLimit":  1000,
+		},
 	}
 
-	statsTracker := stats.NewTracker(ctx)
-
-	mux := http.NewServeMux()
-	mux.Handle("/stats", statsTracker)
-	docs.Register(mux)
-	mux.Handle("/", proxy.NewHandler(authHandler, statsTracker))
-
-	slog.Info("starting server", "addr", config.ListenAddr)
-	err = http.ListenAndServe(config.ListenAddr, mux)
+	collection, err := app.FindCollectionByNameOrId("clients")
 	if err != nil {
-		slog.Error("failed to start server", "error", err)
-		os.Exit(1)
+		slog.Error("clients collection not found", "error", err)
+		return
+	}
+
+	for _, c := range clients {
+		existing, err := app.FindFirstRecordByFilter("clients", "clientID = {:clientID}", map[string]any{"clientID": c["clientID"]})
+		if err != nil {
+			record := core.NewRecord(collection)
+			for k, v := range c {
+				record.Set(k, v)
+			}
+			if err := app.Save(record); err != nil {
+				slog.Error("failed to seed client", "name", c["name"], "error", err)
+			}
+		} else {
+			// Update if needed
+			changed := false
+			for k, v := range c {
+				if existing.Get(k) != v {
+					existing.Set(k, v)
+					changed = true
+				}
+			}
+			if changed {
+				app.Save(existing)
+			}
+		}
 	}
 }

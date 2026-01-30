@@ -2,6 +2,11 @@
 
 set -e  # Exit on error
 
+cd web
+bun install --frozen-lockfile
+bun run build
+cd ..
+
 export CGO_ENABLED=0
 export GOOS=linux
 

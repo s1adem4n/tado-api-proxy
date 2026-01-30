@@ -1,167 +1,214 @@
 # tado API Proxy
-A proxy server that bypasses tado's API rate limits by using OAuth2 authentication. Supports both browser-based and mobile app authentication methods.
 
-> [!WARNING]  
-> tado has started locking out users from using their official apps when using the proxy with a high request volume. Use at you own caution!
+A self-hosted proxy for the tado API that manages and rotates OAuth tokens automatically. Includes a web UI for account management and request statistics.
 
-## Disclaimer
-Besides owning a tado system, I have no connection with the tado company themselves. 
-`tado-api-proxy` was created for my own use, and for others who may wish to experiment with personal Internet of Things systems. 
-I have no business interest with tado. 
-This software is provided without warranty, according to the MIT license.
-This software was made for purely education purposes, and should not be used with bad intentions.
+[Looking for the legacy version?](https://github.com/s1adem4n/tado-api-proxy/tree/legacy)
 
-## Installation
-### Docker
-The container includes a headless Chromium browser (required only for browser auth method).
+> [!WARNING]
+> **Use at your own risk.** tado actively detects and bans accounts with high request volumes from third-party tools. While this proxy implements measures to reduce detection, account bans are still possible.
 
-Create a data directory with proper permissions:
+<table align="center">
+  <tr>
+    <th>Home</th>
+    <th>Statistics</th>
+  </tr>
+  <tr>
+    <td><img src="screenshots/home.png" alt="Home" width="350" /></td>
+    <td><img src="screenshots/statistics.png" alt="Statistics" width="350" /></td>
+  </tr>
+</table>
+
+## Features
+
+- **Automatic token management** – Refreshes and rotates OAuth tokens seamlessly
+- **Multi-account support** – Balance requests across multiple tado accounts
+- **Official API authorization** – Route requests through the official tado API client for reduced ban risk
+- **Web UI** – Manage accounts, view tokens, and monitor request statistics
+- **Request logging** – Track API usage with detailed statistics
+
+## Quick Start
+
+### 1. Install and Run
+
+**Docker (recommended):**
+
 ```sh
 mkdir -p /path/to/data
 sudo chown -R 1000:1000 /path/to/data
-```
 
-Run the container with mobile auth (recommended - simpler, no Chrome needed):
-```sh
 docker run -d \
   -p 8080:8080 \
   -v /path/to/data:/config \
   --restart unless-stopped \
-  -e AUTH_METHOD=mobile \
-  -e EMAIL=you@email.com \
-  -e PASSWORD=yourpassword \
+  -e SUPERUSER_EMAIL=admin@example.com \
+  -e SUPERUSER_PASSWORD=changeme \
   ghcr.io/s1adem4n/tado-api-proxy:latest
 ```
 
-Or run with browser auth (original method):
-```sh
-docker run -d \
-  -p 8080:8080 \
-  -v /path/to/data:/config \
-  --restart unless-stopped \
-  -e AUTH_METHOD=browser \
-  -e EMAIL=you@email.com \
-  -e PASSWORD=yourpassword \
-  ghcr.io/s1adem4n/tado-api-proxy:latest
-```
+**Binary:**
 
-If you encounter file permission errors, ensure the data directory is writable by user `1000:1000`.
-
-
-### Binary
-Download the latest release from the [releases page](https://github.com/s1adem4n/tado-api-proxy/releases).
-
-Set your credentials and run with mobile auth (recommended):
-```sh
-export AUTH_METHOD=mobile
-export EMAIL=you@email.com
-export PASSWORD=yourpassword
-./tado-api-proxy
-```
-
-Or run with browser auth:
-```sh
-export AUTH_METHOD=browser
-export EMAIL=you@email.com
-export PASSWORD=yourpassword
-export CHROME_EXECUTABLE=/usr/bin/chromium  # Only needed for browser auth
-./tado-api-proxy
-```
-
-
-### From Source
-Requires Go 1.25 or later.
+Download from the [releases page](https://github.com/s1adem4n/tado-api-proxy/releases), then:
 
 ```sh
-git clone https://github.com/s1adem4n/tado-api-proxy.git
-cd tado-api-proxy
-export AUTH_METHOD=mobile
-export EMAIL=you@email.com
-export PASSWORD=yourpassword
-go run cmd/main.go
+SUPERUSER_EMAIL=admin@example.com SUPERUSER_PASSWORD=changeme \
+  ./tado-api-proxy serve --dir ./pb_data --http :8080
 ```
 
+### 2. Add Your Account
 
-## Usage
-Replace `https://my.tado.com` with `http://localhost:8080` in your API calls.
+1. Open http://localhost:8080 and log in with your superuser credentials
+2. Add a tado account (email + password)
+3. Tokens for the web and mobile clients are created automatically
 
-For example, to get your profile:
+### 3. Authorize the Official API (Highly Recommended)
+
+> [!IMPORTANT]
+> **This step significantly reduces your risk of being banned.** The official API client has a separate rate limit, which is approved by tado. The proxy prioritizes routing requests through the official API when available to reduce the risk of getting banned.
+
+1. In the web UI, click **Start Authorization** in the "Authorize Official API" section
+2. Complete the authorization flow in your browser
+3. Make sure you're logged into the correct tado account when accepting
+
+### 4. Start Making Requests
+
+Replace `https://my.tado.com` with your proxy URL:
+
 ```sh
 curl http://localhost:8080/api/v2/me
 ```
 
-API documentation is available at `http://localhost:8080/docs`.
+> [!TIP]
+> Use a secondary account instead of your main tado account. Create a new account, invite it to your home, and add it to the proxy. This can protect your primary account from potential bans (but it is not guaranteed). See the [Reducing Ban Risks](#reducing-ban-risk) section for more tips on avoiding bans!
 
-### Statistics
-The proxy tracks request volume to help you monitor usage. You can view these statistics at `http://localhost:8080/stats`. The statistics are stored in-memory and are cleared upon a restart of the proxy.
+## API Usage
 
-Example response:
+### Basic Request
+
+The proxy automatically selects an available token:
+
+```sh
+curl http://localhost:8080/api/v2/me
+```
+
+### Target a Specific Account
+
+Use the `X-Tado-Email` header to force a specific account:
+
+```sh
+curl -H "X-Tado-Email: account@example.com" http://localhost:8080/api/v2/me
+```
+
+### Request Statistics
+
+Get request statistics:
+
+```sh
+curl http://localhost:8080/api/stats
+```
+
+Returns:
+
 ```json
 {
-  "today": 42,
-  "last_hour": 5,
-  "last_24_hours": 120
+  "today": 123,
+  "last_hour": 45,
+  "last_24_hours": 678
 }
 ```
 
+### API Documentation
 
-### Integration with Home Assistant
-Currently, there is no simple way to change the API base URL in the official tado integration. However, you can edit the integration code to replace the base URL with your proxy's URL.
+OpenAPI docs are available at http://localhost:8080/docs
 
-To do this, locate the `PyTado` package files. 
-For Docker they are at `/usr/local/lib/python3.13/site-packages/PyTado/http.py`.
-Change the row `MY_API = "http://my.tado.com/api/v2/"` to `MY_API = "http://localhost:8080/api/v2/"` (or your proxy URL). Restart Home Assistant and it should now use the proxy for API calls.
+## Integrations
 
-Another problem is that the `PyTado` library depends on the `device_code` OAuth2 flow, which is not supported by the proxy (as it automatically handles the authentication). Heavy modifications to the integration code may be required to bypass this, but users [have reported success](https://community.home-assistant.io/t/tado-rate-limiting-api-calls/928751/41) with only doing the above change.
+### Home Assistant
 
-Please see this [Home Assistant community thread](https://community.home-assistant.io/t/tado-rate-limiting-api-calls/928751) for more details.
+TODO
 
-PRs to add more info about Home Assistant integration are very welcome!
+### Homebridge
 
+The [homebridge-tado](https://github.com/homebridge-plugins/homebridge-tado) plugin supports custom API URLs. Point it to your proxy instance.
 
-### Integration with Homebridge
-The Homebridge plugin supports changing the API base URL. Just point it to your proxy instance and it should *just work*™.
+See these discussions for setup details:
 
-For more details about setting it up, see these comments:
 - [Changing the base URL](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3419839118)
-- [Details about running with Docker/Systemd](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3421497695)
+- [Docker/Systemd setup](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3421497695)
 
+## Reducing Ban Risk
+
+tado employs multiple detection methods from my research and testing:
+
+| Method                  | Description                                                                |
+| ----------------------- | -------------------------------------------------------------------------- |
+| **IP-based limits**     | Seems to be about 5,000 requests per IP                                    |
+| **Client-based limits** | Measured over a longer timefram (24 hours?); excessive usage triggers bans |
+| **Pattern detection**   | Regular intervals (e.g., every 30s) appear suspicious                      |
+| **Fingerprinting**      | Unusual client fingerprints result in account deletion                     |
+
+Account treatment varies based on tado device ownership, account age, and other factors. My test accounts (temporary emails, no tado devices) were often deleted within 24–72 hours.
+
+### Recommended Setup
+
+For the most stable configuration:
+
+1. **Authorize the Official API** – This is the single most effective step. The proxy routes through the official client first, which has a separate rate limit and is completely unbannable. Only one authorization per home is needed, as the limit is shared per home!
+
+2. **Add multiple accounts** – Two accounts sharing your home seems to be the sweet spot. The proxy balances requests across their clients automatically.
+
+3. **Use secondary accounts** – This can protect your main account to some degree.
+
+<details>
+<summary><strong>How to create extra accounts</strong></summary>
+
+1. Open a private browser window
+2. Use another legitimate email (recommended) or create a temporary email at [temp-mail.org](https://temp-mail.org)
+3. Register at [login.tado.com](https://login.tado.com) — **don't** create a new home
+4. From your main account, invite the new email to your home
+5. Accept the invitation in the private window
+6. Add the account to the proxy
+
+</details>
+
+### Tips for Developers
+
+If you're building tools that use this proxy, please use these tips to decrease detection possibility:
+
+- **Randomize request intervals** – Add jitter instead of fixed polling
+- **Reduce overnight activity** – Lower request frequency during sleep hours
+- **Batch requests** – Spread bursts over time instead of sending them all at once
 
 ## Configuration
-Currently, configuration is only possible via environment variables:
-| Variable          | Description                                   | Default                                | Required |
-| ----------------- | --------------------------------------------- | -------------------------------------- | -------- |
-| EMAIL             | tado account email                            | *none*                                 | Yes      |
-| PASSWORD          | tado account password                         | *none*                                 | Yes      |
-| AUTH_METHOD       | Authentication method (`browser` or `mobile`) | `browser`                              | No       |
-| LISTEN_ADDR       | Server listen address                         | `:8080`                                | No       |
-| TOKEN_PATH        | Token storage file                            | `token.json`                           | No       |
-| COOKIES_PATH      | Cookies storage file (browser auth only)      | `cookies.json`                         | No       |
-| CHROME_EXECUTABLE | Chrome/Chromium path (browser auth only)      | `/usr/bin/chromium`                    | No       |
-| BROWSER_TIMEOUT   | Browser auth timeout (browser auth only)      | `5m` (5 minutes)                       | No       |
-| HEADLESS          | Run browser headless (browser auth only)      | `true`                                 | No       |
-| TIMEZONE          | Timezone (mobile auth only)                   | `Europe/Berlin`                        | No       |
-| CLIENT_ID         | OAuth2 client ID                              | `af44f89e-ae86-4ebe-905f-6bf759cf6473` | No       |
-| LOG_LEVEL         | Log level (`debug`, `info`, `warn`, `error`)  | `info`                                 | No       |
 
+The server uses [PocketBase](https://pocketbase.io). All PocketBase CLI flags work (`serve --dir`, `--http`, etc.).
 
-## How It Works
+| Environment Variable | Description                | Required     |
+| -------------------- | -------------------------- | ------------ |
+| `SUPERUSER_EMAIL`    | Initial superuser email    | On first run |
+| `SUPERUSER_PASSWORD` | Initial superuser password | On first run |
 
-### Mobile Auth Flow
-The proxy uses OAuth2 with PKCE to authenticate:
-1. Generates a PKCE code challenge and verifier
-2. Sends credentials to Tado's OAuth authorize endpoint
-3. Follows the redirect chain to obtain an authorization code
-4. Exchanges the code for access and refresh tokens
-5. Uses the access token to authenticate API requests
-6. Automatically refreshes tokens when they expire
+## Building from Source
 
-### Browser Auth Flow
-The proxy launches a headless Chrome instance to authenticate with tado using your credentials. It extracts the OAuth2 token from browser storage and uses it to authenticate API requests. When tokens expire, the refresh token is used to obtain new ones. After 2-3 days when refresh tokens expire, the browser authentication process repeats automatically.
+Requires Go 1.25+ and Bun.
 
+```sh
+git clone https://github.com/s1adem4n/tado-api-proxy.git
+cd tado-api-proxy/web
+bun install --frozen-lockfile && bun run build
+cd ..
+SUPERUSER_EMAIL=admin@example.com SUPERUSER_PASSWORD=changeme \
+  go run cmd/main.go serve --dir ./pb_data --http :8080
+```
 
 ## Credits
-- [kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2) - Community OpenAPI specification
-- [go-rod/rod](https://github.com/go-rod/rod) - Browser automation library
-- [scalar/scalar](https://github.com/scalar/scalar) - API documentation viewer
-- [wmalgadey/PyTado](https://github.com/wmalgadey/PyTado) - Disclaimer inspiration :P
+
+- [kritsel/tado-openapispec-v2](https://github.com/kritsel/tado-openapispec-v2) – Community OpenAPI specification
+- [pocketbase/pocketbase](https://github.com/pocketbase/pocketbase) – Embedded database and admin API
+- [scalar/scalar](https://github.com/scalar/scalar) – API documentation viewer
+- [wmalgadey/PyTado](https://github.com/wmalgadey/PyTado) – Disclaimer inspiration
+
+## Disclaimer
+
+This software is provided for educational purposes only, "as is" without warranty of any kind, under the MIT license.
+
+I am not affiliated with, associated with, or endorsed by tado° GmbH. This project was created for personal experimentation with IoT systems. Please use responsibly.

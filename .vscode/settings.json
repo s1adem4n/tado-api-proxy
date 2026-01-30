@@ -1,0 +1,9 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/bun.lock": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/pb_data": true
+  }
+}

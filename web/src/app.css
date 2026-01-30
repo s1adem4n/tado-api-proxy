@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/figtree';
+
+@plugin 'daisyui' {
+	exclude: properties;
+	themes: corporate --default;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'corporate';
+	default: true;
+
+	--color-primary: #ffb424;
+}
+
+#app {
+	@apply mx-auto flex w-full max-w-2xl flex-col gap-4 p-4;
+}
+
+@theme {
+	--font-sans: 'Figtree Variable', sans-serif;
+}

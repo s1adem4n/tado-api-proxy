@@ -1,5 +1,5 @@
 .env
-cookies.json
-token.json
 build/
-dist/
+pb_data/
+test-requests.sh
+scenarios/
