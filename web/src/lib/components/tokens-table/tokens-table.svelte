@@ -61,7 +61,7 @@
 					{/if}
 				{:else}
 					<tr>
-						<td colspan="4" class="text-center py-4">No tokens found.</td>
+						<td colspan="5" class="text-center py-4">No tokens found.</td>
 					</tr>
 				{/each}
 			</tbody>
