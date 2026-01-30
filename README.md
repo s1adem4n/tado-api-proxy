@@ -137,7 +137,7 @@ OpenAPI docs are available at http://localhost:8080/docs
 
 #### Using tado_hijack
 
-[tado_hijack](https://github.com/banter240/tado_hijack) supports using the proxy natively by changing an option. It also implements some obfuscation to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
+[tado_hijack](https://github.com/banter240/tado_hijack) is working on using the proxy natively by changing an option (see dev branch). It also implements some obfuscation to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
 
 #### Using the official integration
 
