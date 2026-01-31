@@ -66,7 +66,7 @@ SUPERUSER_EMAIL=admin@example.com SUPERUSER_PASSWORD=changeme \
 ### 3. Authorize the Official API (Highly Recommended)
 
 > [!IMPORTANT]
-> **This step significantly reduces your risk of being banned.** The official API client has a separate rate limit, which is approved by tado. The proxy prioritizes routing requests through the official API when available to reduce the risk of getting banned.
+> **This step significantly reduces your risk of being banned.** The official API client has a separate rate limit, which is approved by tado. The proxy prioritizes routing requests through the official API when available to reduce the risk of getting banned. Only one authorization per home is needed, as the limit is shared per home!
 
 1. In the web UI, click **Start Authorization** in the "Authorize Official API" section
 2. Complete the authorization flow in your browser
@@ -79,7 +79,6 @@ Replace `https://my.tado.com` with your proxy URL:
 ```sh
 curl http://localhost:8080/api/v2/me
 ```
-
 
 ## API Usage
 
