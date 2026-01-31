@@ -142,7 +142,7 @@ func seedClients(app core.App) {
 			changed := false
 			for k, v := range c {
 				// Don't overwrite dailyLimit as it might have been updated dynamically
-				if k == "dailyLimit" {
+				if k == "dailyLimit" && c["name"] == "Official API" {
 					continue
 				}
 				if existing.Get(k) != v {
