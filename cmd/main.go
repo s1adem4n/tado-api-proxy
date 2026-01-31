@@ -141,6 +141,10 @@ func seedClients(app core.App) {
 			// Update if needed
 			changed := false
 			for k, v := range c {
+				// Don't overwrite dailyLimit as it might have been updated dynamically
+				if k == "dailyLimit" {
+					continue
+				}
 				if existing.Get(k) != v {
 					existing.Set(k, v)
 					changed = true

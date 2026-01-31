@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/imroc/req/v3"
@@ -95,6 +95,8 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		if result == nil {
 			continue
 		}
+
+		h.updateClientRateLimit(t.client, result.response.Header.Get("ratelimit-policy"))
 
 		h.writeProxyResponse(e, result.response, selection.totalLimit, selection.totalUsed)
 		h.logRequest(t.token.Id, e.Request.Method, targetURL.String(), result.response.StatusCode)
@@ -222,7 +224,7 @@ func (h *Handler) tryProxyRequest(e *core.RequestEvent, t tokenWithClient, targe
 
 	resp, err := request.Send(e.Request.Method, targetURL.String())
 	if err != nil {
-		slog.Error("proxy request failed", "error", err)
+		h.app.Logger().Error("proxy request failed", "error", err)
 		return nil, err
 	}
 
@@ -249,7 +251,7 @@ func (h *Handler) markTokenInvalid(token *core.Record) {
 	token.Set("used", time.Now())
 	token.Set("status", "invalid")
 	if err := h.app.Save(token); err != nil {
-		slog.Error("failed to mark token invalid", "error", err)
+		h.app.Logger().Error("failed to mark token invalid", "error", err)
 	}
 }
 
@@ -257,7 +259,34 @@ func (h *Handler) markTokenInvalid(token *core.Record) {
 func (h *Handler) updateTokenUsed(token *core.Record) {
 	token.Set("used", time.Now())
 	if err := h.app.Save(token); err != nil {
-		slog.Error("failed to update token used time", "error", err)
+		h.app.Logger().Error("failed to update token used time", "error", err)
+	}
+}
+
+// updateClientRateLimit updates the client's rate limit if the response header indicates a change.
+func (h *Handler) updateClientRateLimit(client *core.Record, policyHeader string) {
+	if policyHeader == "" {
+		return
+	}
+
+	re := regexp.MustCompile(`q=(\d+)`)
+	matches := re.FindStringSubmatch(policyHeader)
+	if len(matches) < 2 {
+		return
+	}
+
+	limit, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return
+	}
+
+	if client.GetInt("dailyLimit") != limit {
+		client.Set("dailyLimit", limit)
+		if err := h.app.Save(client); err != nil {
+			h.app.Logger().Error("failed to update client rate limit", "client", client.GetString("name"), "error", err)
+		} else {
+			h.app.Logger().Info("updated client rate limit", "client", client.GetString("name"), "limit", limit)
+		}
 	}
 }
 
@@ -281,7 +310,7 @@ func (h *Handler) writeProxyResponse(e *core.RequestEvent, resp *req.Response, t
 
 	e.Response.WriteHeader(resp.StatusCode)
 	if _, err := e.Response.Write(resp.Bytes()); err != nil {
-		slog.Error("failed to write response", "error", err)
+		h.app.Logger().Error("failed to write response", "error", err)
 	}
 }
 
@@ -289,7 +318,7 @@ func (h *Handler) writeProxyResponse(e *core.RequestEvent, resp *req.Response, t
 func (h *Handler) logRequest(tokenID, method, url string, status int) {
 	requestsCollection, err := h.app.FindCollectionByNameOrId("requests")
 	if err != nil {
-		slog.Error("failed to find requests collection", "error", err)
+		h.app.Logger().Error("failed to find requests collection", "error", err)
 		return
 	}
 
@@ -300,7 +329,7 @@ func (h *Handler) logRequest(tokenID, method, url string, status int) {
 	requestRecord.Set("status", status)
 
 	if err := h.app.Save(requestRecord); err != nil {
-		slog.Error("failed to log request", "error", err)
+		h.app.Logger().Error("failed to log request", "error", err)
 	}
 }
 
