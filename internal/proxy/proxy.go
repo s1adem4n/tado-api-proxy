@@ -44,7 +44,69 @@ func (h *Handler) Register() {
 	})
 }
 
+// tokenWithClient pairs a token record with its associated client record.
+type tokenWithClient struct {
+	client *core.Record
+	token  *core.Record
+}
+
+// tokenSelection contains categorized tokens and usage stats.
+type tokenSelection struct {
+	preferred  []tokenWithClient
+	other      []tokenWithClient
+	totalUsed  int
+	totalLimit int
+}
+
+// proxyResult contains the result of a proxy request attempt.
+type proxyResult struct {
+	response *req.Response
+	token    tokenWithClient
+}
+
 func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
+	tokens, err := h.findTokens(e)
+	if err != nil {
+		return err
+	}
+	if len(tokens) == 0 {
+		return e.BadRequestError("no valid tokens found", nil)
+	}
+
+	selection, err := h.categorizeTokens(tokens)
+	if err != nil {
+		return err
+	}
+
+	bodyBytes, err := io.ReadAll(e.Request.Body)
+	if err != nil {
+		return err
+	}
+	e.Request.Body.Close()
+
+	targetURL := h.buildTargetURL(e.Request.URL)
+
+	validTokens := append(selection.preferred, selection.other...)
+	for _, t := range validTokens {
+		result, err := h.tryProxyRequest(e, t, targetURL, bodyBytes)
+		if err != nil {
+			continue
+		}
+		if result == nil {
+			continue
+		}
+
+		h.writeProxyResponse(e, result.response, selection.totalLimit, selection.totalUsed)
+		h.logRequest(t.token.Id, e.Request.Method, targetURL.String(), result.response.StatusCode)
+
+		return nil
+	}
+
+	return e.UnauthorizedError("no valid tokens found", nil)
+}
+
+// findTokens retrieves valid tokens based on request headers and path.
+func (h *Handler) findTokens(e *core.RequestEvent) ([]*core.Record, error) {
 	filter := "status = 'valid'"
 
 	accountEmail := e.Request.Header.Get("X-Tado-Email")
@@ -57,7 +119,7 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 		filter += " && account.homes.tadoID ?= {:homeID}"
 	}
 
-	tokens, err := h.app.FindRecordsByFilter(
+	return h.app.FindRecordsByFilter(
 		"tokens",
 		filter, "used", 0, 0,
 		dbx.Params{
@@ -65,197 +127,181 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 			"homeID": homeID,
 		},
 	)
-	if err != nil {
-		return err
-	}
+}
 
-	if len(tokens) == 0 {
-		return e.BadRequestError("no valid tokens found", nil)
-	}
-
-	// Prefer deviceCode tokens as they don't get users banned
-	var preferredTokens []struct {
-		client *core.Record
-		token  *core.Record
-	}
-	var otherTokens []struct {
-		client *core.Record
-		token  *core.Record
-	}
-	var totalUsed int
-	var totalLimit int
-
+// categorizeTokens separates tokens into preferred (deviceCode) and other types,
+// filtering out those that have exceeded their rate limit.
+func (h *Handler) categorizeTokens(tokens []*core.Record) (*tokenSelection, error) {
 	cutoff, err := tado.GetRatelimitCutoff()
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	selection := &tokenSelection{}
 
 	for _, token := range tokens {
 		client, err := h.app.FindRecordById("clients", token.GetString("client"))
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		totalLimit += client.GetInt("dailyLimit")
-
-		var count int
-		err = h.app.DB().NewQuery(
-			"SELECT count(*) FROM requests WHERE token = {:tokenID} AND created > {:cutoff}",
-		).Bind(dbx.Params{
-			"tokenID": token.Id,
-			"cutoff":  cutoff,
-		}).Row(&count)
+		selection.totalLimit += client.GetInt("dailyLimit")
+		count, err := h.getTokenUsageCount(token.Id, cutoff)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		totalUsed += count
+		selection.totalUsed += count
+		if count >= client.GetInt("dailyLimit") {
+			continue
+		}
 
-		if count < client.GetInt("dailyLimit") {
-			if client.GetString("type") == "deviceCode" {
-				preferredTokens = append(preferredTokens, struct {
-					client *core.Record
-					token  *core.Record
-				}{
-					client: client,
-					token:  token,
-				})
-			} else {
-				otherTokens = append(otherTokens, struct {
-					client *core.Record
-					token  *core.Record
-				}{
-					client: client,
-					token:  token,
-				})
-			}
+		tc := tokenWithClient{client: client, token: token}
+		if client.GetString("type") == "deviceCode" {
+			selection.preferred = append(selection.preferred, tc)
+		} else {
+			selection.other = append(selection.other, tc)
 		}
 	}
+	return selection, nil
+}
 
-	// Read body for reuse
-	bodyBytes, err := io.ReadAll(e.Request.Body)
-	if err != nil {
-		return err
-	}
-	e.Request.Body.Close()
+// getTokenUsageCount returns the number of requests made with a token since the cutoff time.
+func (h *Handler) getTokenUsageCount(tokenID string, cutoff time.Time) (int, error) {
+	var count int
 
+	err := h.app.DB().NewQuery(
+		"SELECT count(*) FROM requests WHERE token = {:tokenID} AND created > {:cutoff}",
+	).Bind(dbx.Params{
+		"tokenID": tokenID,
+		"cutoff":  cutoff,
+	}).Row(&count)
+
+	return count, err
+}
+
+// buildTargetURL constructs the target URL for the Tado API.
+func (h *Handler) buildTargetURL(requestURL *url.URL) url.URL {
 	targetURL := url.URL{
 		Scheme:   "https",
 		Host:     "my.tado.com",
-		Path:     e.Request.URL.Path,
-		RawQuery: e.Request.URL.RawQuery,
+		Path:     requestURL.Path,
+		RawQuery: requestURL.RawQuery,
 	}
 
-	validTokens := append(preferredTokens, otherTokens...)
-
-	for _, t := range validTokens {
-		var apiClient *req.Client
-		if t.client.GetString("platform") == "mobile" {
-			apiClient = tado.NewIOSSafariAPIClient()
-		} else {
-			apiClient = tado.NewFirefoxAPIClient()
-		}
-
-		// Create request with iOS Safari fingerprinting
-		request := apiClient.R().
-			SetContext(e.Request.Context()).
-			SetHeader("authorization", "Bearer "+t.token.GetString("accessToken"))
-
-		// Add query param to match real traffic
-		if targetURL.RawQuery != "" {
-			targetURL.RawQuery += "&ngsw-bypass=true"
-		} else {
-			targetURL.RawQuery = "ngsw-bypass=true"
-		}
-
-		// Set content type if present in original request
-		if ct := e.Request.Header.Get("Content-Type"); ct != "" {
-			request.SetHeader("content-type", ct)
-		}
-
-		// Set body if present
-		if len(bodyBytes) > 0 {
-			request.SetBody(bytes.NewReader(bodyBytes))
-		}
-
-		var resp *req.Response
-
-		switch e.Request.Method {
-		case http.MethodGet:
-			resp, err = request.Get(targetURL.String())
-		case http.MethodPost:
-			resp, err = request.Post(targetURL.String())
-		case http.MethodPut:
-			resp, err = request.Put(targetURL.String())
-		case http.MethodDelete:
-			resp, err = request.Delete(targetURL.String())
-		case http.MethodPatch:
-			resp, err = request.Patch(targetURL.String())
-		default:
-			return e.BadRequestError("unsupported method", nil)
-		}
-
-		if err != nil {
-			slog.Error("proxy request failed", "error", err)
-			continue
-		}
-
-		if resp.StatusCode == http.StatusUnauthorized {
-			t.token.Set("used", time.Now())
-			t.token.Set("status", "invalid")
-			if err := h.app.Save(t.token); err != nil {
-				return err
-			}
-			continue
-		}
-
-		t.token.Set("used", time.Now())
-		if err := h.app.Save(t.token); err != nil {
-			return err
-		}
-
-		// Copy response headers
-		for k, v := range resp.Header {
-			for _, vv := range v {
-				e.Response.Header().Add(k, vv)
-			}
-		}
-
-		e.Response.Header().Set(
-			"Ratelimit",
-			fmt.Sprintf(`"perday";r=%d`, totalLimit-totalUsed-1),
-		)
-		e.Response.Header().Set(
-			"Ratelimit-Policy",
-			fmt.Sprintf(`"perday";q=%d;w=86400`, totalLimit),
-		)
-
-		e.Response.WriteHeader(resp.StatusCode)
-
-		_, err = e.Response.Write(resp.Bytes())
-		if err != nil {
-			return err
-		}
-
-		requestsCollection, err := h.app.FindCollectionByNameOrId("requests")
-		if err != nil {
-			return err
-		}
-
-		requestRecord := core.NewRecord(requestsCollection)
-
-		requestRecord.Set("token", t.token.Id)
-		requestRecord.Set("method", e.Request.Method)
-		requestRecord.Set("url", targetURL.String())
-		requestRecord.Set("status", resp.StatusCode)
-		if err := h.app.Save(requestRecord); err != nil {
-			slog.Error("failed to log request", "error", err)
-		}
-
-		return nil
+	// Add query param to match real traffic
+	if targetURL.RawQuery != "" {
+		targetURL.RawQuery += "&ngsw-bypass=true"
+	} else {
+		targetURL.RawQuery = "ngsw-bypass=true"
 	}
 
-	return e.UnauthorizedError("no valid tokens found", nil)
+	return targetURL
+}
+
+// tryProxyRequest attempts to proxy the request using the given token.
+// Returns nil result if the token is invalid and should be skipped.
+func (h *Handler) tryProxyRequest(e *core.RequestEvent, t tokenWithClient, targetURL url.URL, bodyBytes []byte) (*proxyResult, error) {
+	apiClient := h.createAPIClient(t.client)
+	request := apiClient.R().
+		SetContext(e.Request.Context()).
+		SetHeader("authorization", "Bearer "+t.token.GetString("accessToken"))
+
+	for k, v := range e.Request.Header {
+		if k == "Authorization" || k == "X-Tado-Email" || k == "Host" || k == "Accept-Encoding" {
+			continue
+		}
+		for _, vv := range v {
+			request.SetHeader(k, vv)
+		}
+	}
+
+	if len(bodyBytes) > 0 {
+		request.SetBody(bytes.NewReader(bodyBytes))
+	}
+
+	resp, err := request.Send(e.Request.Method, targetURL.String())
+	if err != nil {
+		slog.Error("proxy request failed", "error", err)
+		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		h.markTokenInvalid(t.token)
+		return nil, nil
+	}
+
+	h.updateTokenUsed(t.token)
+
+	return &proxyResult{response: resp, token: t}, nil
+}
+
+// createAPIClient creates the appropriate API client based on the client platform.
+func (h *Handler) createAPIClient(client *core.Record) *req.Client {
+	if client.GetString("platform") == "mobile" {
+		return tado.NewIOSSafariAPIClient()
+	}
+	return tado.NewFirefoxAPIClient()
+}
+
+// markTokenInvalid marks a token as invalid and saves it.
+func (h *Handler) markTokenInvalid(token *core.Record) {
+	token.Set("used", time.Now())
+	token.Set("status", "invalid")
+	if err := h.app.Save(token); err != nil {
+		slog.Error("failed to mark token invalid", "error", err)
+	}
+}
+
+// updateTokenUsed updates the token's last used timestamp.
+func (h *Handler) updateTokenUsed(token *core.Record) {
+	token.Set("used", time.Now())
+	if err := h.app.Save(token); err != nil {
+		slog.Error("failed to update token used time", "error", err)
+	}
+}
+
+// writeProxyResponse writes the proxy response to the client.
+func (h *Handler) writeProxyResponse(e *core.RequestEvent, resp *req.Response, totalLimit, totalUsed int) {
+	for k, v := range resp.Header {
+		for _, vv := range v {
+			e.Response.Header().Add(k, vv)
+		}
+	}
+
+	rateLimitPolicy := fmt.Sprintf(`"perday";q=%d;w=86400`, totalLimit)
+	rateLimit := fmt.Sprintf(`"perday";r=%d`, totalLimit-totalUsed-1)
+
+	e.Response.Header().Set("Ratelimit-Policy", rateLimitPolicy)
+	e.Response.Header().Set("Ratelimit", fmt.Sprintf(`"perday";r=%d`, totalLimit-totalUsed-1))
+
+	// compatibilty for tado_hijack
+	e.Response.Header()["RateLimit-Policy"] = []string{rateLimitPolicy}
+	e.Response.Header()["RateLimit"] = []string{rateLimit}
+
+	e.Response.WriteHeader(resp.StatusCode)
+	if _, err := e.Response.Write(resp.Bytes()); err != nil {
+		slog.Error("failed to write response", "error", err)
+	}
+}
+
+// logRequest creates a request log entry in the database.
+func (h *Handler) logRequest(tokenID, method, url string, status int) {
+	requestsCollection, err := h.app.FindCollectionByNameOrId("requests")
+	if err != nil {
+		slog.Error("failed to find requests collection", "error", err)
+		return
+	}
+
+	requestRecord := core.NewRecord(requestsCollection)
+	requestRecord.Set("token", tokenID)
+	requestRecord.Set("method", method)
+	requestRecord.Set("url", url)
+	requestRecord.Set("status", status)
+
+	if err := h.app.Save(requestRecord); err != nil {
+		slog.Error("failed to log request", "error", err)
+	}
 }
 
 func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
@@ -267,24 +313,24 @@ func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
-
 	if len(tokens) == 0 {
 		return e.JSON(200, nil)
 	}
 
-	usage := map[string]any{}
 	cutoff, err := tado.GetRatelimitCutoff()
 	if err != nil {
 		return err
 	}
+
+	usage := map[string]any{}
 
 	for _, token := range tokens {
 		client, err := h.app.FindRecordById("clients", token.GetString("client"))
 		if err != nil {
 			return err
 		}
-
 		var count int
+
 		err = h.app.DB().NewQuery(
 			"SELECT count(*) FROM requests WHERE token = {:tokenID} AND created > {:cutoff}",
 		).Bind(dbx.Params{
@@ -302,7 +348,6 @@ func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
 			"status":    token.GetString("status"),
 		}
 	}
-
 	return e.JSON(200, usage)
 }
 
