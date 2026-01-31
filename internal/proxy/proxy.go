@@ -208,7 +208,6 @@ func (h *Handler) tryProxyRequest(e *core.RequestEvent, t tokenWithClient, targe
 		SetHeader("authorization", "Bearer "+t.token.GetString("accessToken"))
 
 	for k, v := range e.Request.Header {
-		// ADD THESE EXCLUSIONS
 		if k == "Authorization" || k == "X-Tado-Email" || k == "Host" || k == "Accept-Encoding" {
 			continue
 		}
