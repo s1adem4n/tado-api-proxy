@@ -51,6 +51,11 @@ func (c *Client) Register() {
 	})
 
 	c.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		err := c.DeleteUnusedCodes()
+		if err != nil {
+			c.app.Logger().Error("failed to delete unused codes", "error", err)
+		}
+
 		return e.Next()
 	})
 }
@@ -269,6 +274,35 @@ func (c *Client) WaitForDeviceAuthorization(
 			return ctx.Err()
 		}
 	}
+}
+
+func (c *Client) DeleteUnusedCodes() error {
+	codes, err := c.app.FindRecordsByFilter(
+		"codes",
+		"status != 'authorized'",
+		"", 0, 0,
+		map[string]any{
+			"now": time.Now(),
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	err = c.app.RunInTransaction(func(txApp core.App) error {
+		for _, code := range codes {
+			if err := txApp.Delete(code); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Client) RefreshExpiredTokens(ctx context.Context) error {
