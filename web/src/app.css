@@ -3,14 +3,24 @@
 
 @plugin 'daisyui' {
 	exclude: properties;
-	themes: corporate --default;
 }
 
 @plugin 'daisyui/theme' {
 	name: 'corporate';
 	default: true;
-
 	--color-primary: #ffb424;
+	--radius-selector: 1.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 1rem;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'dim';
+	prefersdark: true;
+	--color-primary: #ffb424;
+	--radius-selector: 1.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 1rem;
 }
 
 #app {
