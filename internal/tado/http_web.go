@@ -1,6 +1,9 @@
 package tado
 
 import (
+	"fmt"
+	"log/slog"
+	"regexp"
 	"time"
 
 	"github.com/imroc/req/v3"
@@ -234,8 +237,29 @@ func NewFirefoxTokenClient() *req.Client {
 	return client
 }
 
+func GetWebAppRelease() string {
+	client := NewFirefoxClient()
+
+	resp, err := client.R().Get("https://app.tado.com/")
+	if err != nil {
+		slog.Error("failed to get web app release", "error", err)
+		return "tado=webapp-release/v3836"
+	}
+
+	// find version:"release/v{number}"
+	re := regexp.MustCompile(`version:"(release/v[0-9]+)"`)
+	matches := re.FindStringSubmatch(resp.String())
+	if len(matches) < 2 {
+		slog.Error("failed to find web app release in response")
+		return "tado=webapp-release/v3836"
+	}
+
+	return "tado=webapp-" + matches[1]
+}
+
 // NewFirefoxAPIClient creates an HTTP client configured for API requests (Firefox)
 func NewFirefoxAPIClient() *req.Client {
+	fmt.Println(GetWebAppRelease())
 	client := NewFirefoxClient().
 		SetCommonHeaderOrder(firefoxAPIHeaderOrder...).
 		SetCommonHeaders(map[string]string{
@@ -243,7 +267,7 @@ func NewFirefoxAPIClient() *req.Client {
 			"accept-language": "de,en;q=0.9",
 			"accept-encoding": "gzip, deflate, br, zstd",
 			"referer":         "https://app.tado.com/",
-			"x-amzn-trace-id": "tado=webapp-release/v3835",
+			"x-amzn-trace-id": GetWebAppRelease(),
 			"origin":          "https://app.tado.com",
 			"dnt":             "1",
 			"sec-gpc":         "1",
