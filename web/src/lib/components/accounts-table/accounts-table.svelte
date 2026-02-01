@@ -63,8 +63,13 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each accounts as account}
-					<AccountsTableRow {account} homes={getAccountHomes(account)} />
+				{#each accounts as account, index}
+					<AccountsTableRow
+						{index}
+						total={accounts.length}
+						{account}
+						homes={getAccountHomes(account)}
+					/>
 				{:else}
 					<tr>
 						<td colspan="3" class="text-center py-4">No accounts found.</td>

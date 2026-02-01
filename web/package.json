@@ -42,8 +42,7 @@
 			{
 				"files": "*.svelte",
 				"options": {
-					"parser": "svelte",
-					"tailwindStylesheet": "./web/src/app.css"
+					"parser": "svelte"
 				}
 			}
 		],
