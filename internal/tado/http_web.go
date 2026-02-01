@@ -1,7 +1,6 @@
 package tado
 
 import (
-	"fmt"
 	"log/slog"
 	"regexp"
 	"time"
@@ -259,7 +258,6 @@ func GetWebAppRelease() string {
 
 // NewFirefoxAPIClient creates an HTTP client configured for API requests (Firefox)
 func NewFirefoxAPIClient() *req.Client {
-	fmt.Println(GetWebAppRelease())
 	client := NewFirefoxClient().
 		SetCommonHeaderOrder(firefoxAPIHeaderOrder...).
 		SetCommonHeaders(map[string]string{

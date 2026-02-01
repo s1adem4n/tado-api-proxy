@@ -2,6 +2,7 @@ package tado
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -415,6 +416,10 @@ func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) err
 	)
 	if err != nil {
 		return err
+	}
+
+	if newToken.AccessToken == "" || newToken.RefreshToken == "" {
+		return fmt.Errorf("empty access or refresh token received")
 	}
 
 	tokenRecord.Set("accessToken", newToken.AccessToken)
