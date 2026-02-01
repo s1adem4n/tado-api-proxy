@@ -48,6 +48,7 @@
 					<th>Last used</th>
 					<th>Status</th>
 					<th>Rate Limit</th>
+					<th>Enabled</th>
 				</tr>
 			</thead>
 			<tbody>

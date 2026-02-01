@@ -123,7 +123,7 @@ func (c *Client) Authorize(
 	// Step 3: Follow redirects until we reach the redirect URI
 	location := resp.GetHeader("Location")
 	for location != "" && !strings.HasPrefix(location, redirectURI) {
-		absLocation := c.absURL(location)
+		absLocation := absURL(location)
 
 		resp, err = authClient.R().
 			SetContext(ctx).
@@ -315,4 +315,11 @@ func GetRatelimitCutoff() (time.Time, error) {
 	}
 
 	return cutoff.UTC(), nil
+}
+
+func absURL(loc string) string {
+	if strings.HasPrefix(loc, "http") {
+		return loc
+	}
+	return "https://login.tado.com" + loc
 }

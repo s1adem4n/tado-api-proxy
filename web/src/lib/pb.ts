@@ -51,6 +51,7 @@ export interface Token extends Base {
 	status: TokenStatus;
 	accessToken: string;
 	refreshToken: string;
+	disabled: boolean;
 	expires: string;
 	used: string;
 }

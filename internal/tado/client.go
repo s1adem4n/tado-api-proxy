@@ -3,7 +3,6 @@ package tado
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -449,11 +448,4 @@ func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) err
 
 	c.app.Logger().Info("refreshed token", "id", tokenRecord.Id)
 	return nil
-}
-
-func (c *Client) absURL(loc string) string {
-	if strings.HasPrefix(loc, "http") {
-		return loc
-	}
-	return "https://login.tado.com" + loc
 }

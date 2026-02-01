@@ -109,7 +109,7 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 
 // findTokens retrieves valid tokens based on request headers and path.
 func (h *Handler) findTokens(e *core.RequestEvent) ([]*core.Record, error) {
-	filter := "status = 'valid'"
+	filter := "status = 'valid' && disabled = false"
 
 	accountEmail := e.Request.Header.Get("X-Tado-Email")
 	if accountEmail != "" {

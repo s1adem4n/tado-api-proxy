@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Account, Client, RatelimitDetails, Token } from '@/lib/pb';
+	import { pb, type Account, type Client, type RatelimitDetails, type Token } from '@/lib/pb';
 
 	let {
 		token,
@@ -25,6 +25,8 @@
 		}
 		return usedDate.toLocaleString();
 	}
+
+	let loading = $state(false);
 </script>
 
 <tr>
@@ -50,6 +52,26 @@
 			<span class="text-sm text-base-content/70">
 				{ratelimitDetails.used}/{ratelimitDetails.limit}
 			</span>
+		</div>
+	</td>
+	<td>
+		<div class="flex justify-center">
+			<input
+				class="checkbox checkbox-neutral"
+				type="checkbox"
+				checked={!token.disabled}
+				onchange={async () => {
+					if (loading) return;
+					loading = true;
+					try {
+						await pb
+							.collection('tokens')
+							.update(token.id, { disabled: token.disabled ? false : true });
+					} finally {
+						loading = false;
+					}
+				}}
+			/>
 		</div>
 	</td>
 </tr>
