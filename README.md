@@ -24,6 +24,7 @@ A self-hosted proxy for the tado API that manages and rotates OAuth tokens autom
 - **Multi-account support** – Balance requests across multiple tado accounts
 - **Official API authorization** – Route requests through the official tado API client for reduced ban risk
 - **Web UI** – Manage accounts, view tokens, and monitor request statistics
+- **Authenticated Access** – Optionally protect the proxy API with a URL path token
 - **Request logging** – Track API usage with detailed statistics
 
 ## Quick Start
@@ -80,7 +81,6 @@ Replace `https://my.tado.com` with your proxy URL:
 curl http://localhost:8080/api/v2/me
 ```
 
-
 ## API Usage
 
 ### Basic Request
@@ -131,6 +131,21 @@ Ratelimit-Policy: "perday";q=5000;w=86400
 ### API Documentation
 
 OpenAPI docs are available at http://localhost:8080/docs
+
+## Authenticated Access
+
+By default, the proxy is accessible without a token at `/api/v2/...`. You can enable "Protected Access" in the web UI settings to restrict access to the API. When enabled:
+
+1. The legacy endpoint `/api/v2/...` will return a 403 Forbidden error.
+2. You must use the authenticated endpoint: `/<proxy_token>/api/v2/...`.
+3. The proxy token is generated automatically and can be found in the web UI under "Proxy Settings".
+
+Example authenticated request:
+
+```sh
+# Replace 'a1b2c3d4' with your actual proxy token
+curl http://localhost:8080/a1b2c3d4/api/v2/me
+```
 
 ## Integrations
 

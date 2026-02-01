@@ -56,6 +56,11 @@ export interface Token extends Base {
 	used: string;
 }
 
+export interface Settings extends Base {
+	proxyToken: string;
+	proxyTokenEnabled: boolean;
+}
+
 export interface TypedPocketBase extends PocketBase {
 	collection(idOrName: string): RecordService;
 	collection(idOrName: 'accounts'): RecordService<Account>;
@@ -64,6 +69,7 @@ export interface TypedPocketBase extends PocketBase {
 	collection(idOrName: 'homes'): RecordService<Home>;
 	collection(idOrName: 'requests'): RecordService<Requests>;
 	collection(idOrName: 'tokens'): RecordService<Token>;
+	collection(idOrName: 'settings'): RecordService<Settings>;
 }
 
 export const pb = new PocketBase() as TypedPocketBase;

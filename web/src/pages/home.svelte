@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AccountsTable } from '@/lib/components/accounts-table';
 	import { DeviceCodeSection } from '@/lib/components/device-code';
+	import { ProxySettings } from '@/lib/components/proxy-settings';
 	import { TokensTable } from '@/lib/components/tokens-table';
 	import { pb } from '@/lib/pb';
 	import { MultipleSubscription, navigation } from '@/lib/stores.svelte';
@@ -32,6 +33,8 @@
 		</button>
 	</div>
 </header>
+
+<ProxySettings />
 
 <AccountsTable accounts={accounts.items} homes={homes.items} />
 

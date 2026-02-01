@@ -2,12 +2,15 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/imroc/req/v3"
@@ -28,7 +31,19 @@ func NewHandler(app core.App) *Handler {
 
 func (h *Handler) Register() {
 	h.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		e.Router.Any("/api/v2/{path...}", h.HandleProxyRequest)
+		settingsRecord, err := h.ensureSettings()
+		if err != nil {
+			return err
+		}
+
+		e.Router.Any("/api/v2/{path...}", h.HandleLegacyProxyRequest)
+		e.Router.Any(
+			fmt.Sprintf(
+				"/%s/api/v2/{path...}",
+				settingsRecord.GetString("proxyToken"),
+			),
+			h.HandleAuthenticatedProxyRequest,
+		)
 		e.Router.GET("/api/ratelimits", h.HandleRatelimitsRequest)
 		e.Router.GET("/api/stats", h.HandleStatsRequest)
 
@@ -42,6 +57,34 @@ func (h *Handler) Register() {
 			h.app.Logger().Error("failed to clean request logs", "error", err)
 		}
 	})
+}
+
+func (h *Handler) ensureSettings() (*core.Record, error) {
+	record, err := h.app.FindFirstRecordByFilter("settings", "")
+	if err == nil && record != nil {
+		return record, nil
+	}
+
+	collection, err := h.app.FindCollectionByNameOrId("settings")
+	if err != nil {
+		return nil, err
+	}
+
+	record = core.NewRecord(collection)
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return nil, fmt.Errorf("failed to generate proxy token: %w", err)
+	}
+	token := hex.EncodeToString(b)
+
+	record.Set("proxyToken", token)
+	record.Set("proxyTokenEnabled", false)
+	err = h.app.Save(record)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create settings record: %w", err)
+	}
+
+	return record, nil
 }
 
 // tokenWithClient pairs a token record with its associated client record.
@@ -64,8 +107,37 @@ type proxyResult struct {
 	token    tokenWithClient
 }
 
-func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
-	tokens, err := h.findTokens(e)
+func (h *Handler) HandleLegacyProxyRequest(e *core.RequestEvent) error {
+	// Check if legacy access is disabled
+	record, err := h.app.FindFirstRecordByFilter("settings", "proxyTokenEnabled = true")
+	if err == nil && record != nil {
+		return e.ForbiddenError("Please use the authenticated endpoint for access or disable protected access in the WebUI", nil)
+	}
+
+	return h.performProxyRequest(e, e.Request.URL.Path)
+}
+
+func (h *Handler) HandleAuthenticatedProxyRequest(e *core.RequestEvent) error {
+	// token is first path segment
+	parts := strings.Split(e.Request.URL.Path, "/")
+	token := parts[1]
+
+	// Verify token
+	_, err := h.app.FindFirstRecordByFilter("settings", "proxyToken = {:token}", dbx.Params{"token": token})
+	if err != nil {
+		return e.NotFoundError("Not Found", nil)
+	}
+
+	// Strip token from path to get upstream path
+	requestPath := e.Request.URL.Path
+	prefix := "/" + token
+	upstreamPath := strings.TrimPrefix(requestPath, prefix)
+
+	return h.performProxyRequest(e, upstreamPath)
+}
+
+func (h *Handler) performProxyRequest(e *core.RequestEvent, upstreamPath string) error {
+	tokens, err := h.findTokens(e, upstreamPath)
 	if err != nil {
 		return err
 	}
@@ -84,7 +156,7 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 	}
 	e.Request.Body.Close()
 
-	targetURL := h.buildTargetURL(e.Request.URL)
+	targetURL := h.buildTargetURL(e.Request.URL, upstreamPath)
 
 	validTokens := append(selection.preferred, selection.other...)
 	for _, t := range validTokens {
@@ -108,7 +180,7 @@ func (h *Handler) HandleProxyRequest(e *core.RequestEvent) error {
 }
 
 // findTokens retrieves valid tokens based on request headers and path.
-func (h *Handler) findTokens(e *core.RequestEvent) ([]*core.Record, error) {
+func (h *Handler) findTokens(e *core.RequestEvent, upstreamPath string) ([]*core.Record, error) {
 	filter := "status = 'valid' && disabled = false"
 
 	accountEmail := e.Request.Header.Get("X-Tado-Email")
@@ -116,7 +188,7 @@ func (h *Handler) findTokens(e *core.RequestEvent) ([]*core.Record, error) {
 		filter += " && account.email = {:email}"
 	}
 
-	homeID := extractHomeID(e.Request.URL.Path)
+	homeID := extractHomeID(upstreamPath)
 	if homeID != "" {
 		filter += " && account.homes.tadoID ?= {:homeID}"
 	}
@@ -183,11 +255,11 @@ func (h *Handler) getTokenUsageCount(tokenID string, cutoff time.Time) (int, err
 }
 
 // buildTargetURL constructs the target URL for the Tado API.
-func (h *Handler) buildTargetURL(requestURL *url.URL) url.URL {
+func (h *Handler) buildTargetURL(requestURL *url.URL, upstreamPath string) url.URL {
 	targetURL := url.URL{
 		Scheme:   "https",
 		Host:     "my.tado.com",
-		Path:     requestURL.Path,
+		Path:     upstreamPath,
 		RawQuery: requestURL.RawQuery,
 	}
 
