@@ -44,12 +44,7 @@ func (c *Client) Register() {
 		return e.Next()
 	})
 
-	c.app.Cron().MustAdd("refresh-tokens", "* * * * *", func() {
-		err := c.RefreshExpiredTokens(context.Background())
-		if err != nil {
-			c.app.Logger().Error("failed to refresh tokens", "error", err)
-		}
-	})
+	go c.StartTokenRefreshWorker(context.Background())
 
 	c.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		err := c.DeleteUnusedCodes()
@@ -397,10 +392,30 @@ func (c *Client) fixDeviceCodeToken(tokenRecord *core.Record) error {
 	return nil
 }
 
+func (c *Client) StartTokenRefreshWorker(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			err := c.RefreshExpiredTokens(ctx)
+			if err != nil {
+				c.app.Logger().Error("failed to refresh tokens", "error", err)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) error {
 	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-2 * time.Minute)
-	if time.Now().Before(bufferedExpiry.Time()) {
+	bufferedExpiry := expires.Add(-1 * time.Minute)
+
+	// Only skip refresh if the token is not expired AND it is currently valid.
+	// If it is invalid (e.g. marked so by a 401 response), we should try to refresh it.
+	if time.Now().Before(bufferedExpiry.Time()) && tokenRecord.GetString("status") == "valid" {
 		return nil
 	}
 
@@ -422,6 +437,7 @@ func (c *Client) refreshToken(ctx context.Context, tokenRecord *core.Record) err
 		return fmt.Errorf("empty access or refresh token received")
 	}
 
+	tokenRecord.Set("status", "valid")
 	tokenRecord.Set("accessToken", newToken.AccessToken)
 	tokenRecord.Set("refreshToken", newToken.RefreshToken)
 	expiry := CalculateTokenExpiry(newToken.ExpiresIn)
