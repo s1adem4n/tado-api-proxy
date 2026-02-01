@@ -28,8 +28,8 @@
 
 <div class="flex flex-col gap-2">
 	<h2 class="text-2xl font-semibold">Proxy Access</h2>
-	{#if settings}
-		<div class="flex flex-col gap-4 rounded-box border border-base-content/5 bg-base-100 p-4">
+	<div class="flex flex-col gap-4 rounded-box border border-base-content/5 bg-base-100 p-4">
+		{#if settings}
 			{#if !settings.proxyTokenEnabled}
 				<div role="alert" class="alert alert-vertical alert-warning sm:alert-horizontal">
 					<AlertTriangleIcon class="h-5 w-5" />
@@ -57,36 +57,34 @@
 						Enable Unauthenticated Access
 					</button>
 				</div>
-			{/if}
 
-			<div class="flex flex-col gap-2">
-				<label class="label" for="proxy-endpoint-input">
-					<span class="label-text font-medium">Authenticated Base URL</span>
-				</label>
-				<div class="join w-full">
-					<input
-						type="text"
-						readonly
-						value={getEndpoint(settings.proxyToken)}
-						id="proxy-endpoint-input"
-						class="input-bordered input join-item w-full font-mono text-sm"
-					/>
-					<button
-						class="btn join-item btn-square"
-						onclick={copyEndpoint}
-						aria-label="Copy Endpoint"
-					>
-						<CopyIcon />
-					</button>
-				</div>
-				<div class="label">
-					<span class="label-text-alt">
+				<div class="flex flex-col gap-2">
+					<label class="label" for="proxy-endpoint-input">
+						<span class="label-text font-medium">Authenticated Base URL</span>
+					</label>
+					<div class="join w-full">
+						<input
+							type="text"
+							readonly
+							value={getEndpoint(settings.proxyToken)}
+							id="proxy-endpoint-input"
+							class="input-bordered input join-item w-full font-mono text-sm"
+						/>
+						<button
+							class="btn join-item btn-square"
+							onclick={copyEndpoint}
+							aria-label="Copy Endpoint"
+						>
+							<CopyIcon />
+						</button>
+					</div>
+					<span class="text-sm text-base-content/70">
 						Use this base URL for your tado client configuration.
 					</span>
 				</div>
-			</div>
-		</div>
-	{:else}
-		<div>Loading settings...</div>
-	{/if}
+			{/if}
+		{:else}
+			<div>Loading settings...</div>
+		{/if}
+	</div>
 </div>
