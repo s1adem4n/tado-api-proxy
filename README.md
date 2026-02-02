@@ -153,7 +153,7 @@ curl http://localhost:8080/a1b2c3d4/api/v2/me
 
 #### Using tado_hijack
 
-[tado_hijack](https://github.com/banter240/tado_hijack) supports using the proxy natively by changing an option (see dev branch). It also implements some obfuscations to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
+[tado_hijack](https://github.com/banter240/tado_hijack) supports using the proxy natively by changing an option. It also implements some obfuscations to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
 
 #### Using the official integration
 
