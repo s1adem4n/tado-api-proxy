@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/s1adem4n/tado-api-proxy/internal/tokens"
 )
 
 func (c *Client) CreateCode(e *core.RecordRequestEvent) error {
@@ -17,7 +18,7 @@ func (c *Client) CreateCode(e *core.RecordRequestEvent) error {
 		return nil
 	}
 
-	deviceAuth, err := c.DeviceAuthorize(
+	deviceAuth, err := c.auth.DeviceAuthorize(
 		e.Request.Context(),
 		clientRecord.GetString("clientID"),
 		clientRecord.GetString("scope"),
@@ -70,7 +71,7 @@ func (c *Client) WaitForDeviceAuthorization(
 	for {
 		select {
 		case <-ticker.C:
-			token, err := c.ExchangeDeviceCode(
+			token, err := c.auth.ExchangeDeviceCode(
 				ctx,
 				clientRecord.GetString("clientID"),
 				codeRecord.GetString("deviceCode"),
@@ -113,7 +114,7 @@ func (c *Client) WaitForDeviceAuthorization(
 			tokenRecord.Set("accessToken", token.AccessToken)
 			tokenRecord.Set("refreshToken", token.RefreshToken)
 
-			expiry := CalculateTokenExpiry(token.ExpiresIn)
+			expiry := tokens.CalculateTokenExpiry(token.ExpiresIn)
 			tokenRecord.Set("expires", expiry)
 
 			if err := c.app.Save(tokenRecord); err != nil {

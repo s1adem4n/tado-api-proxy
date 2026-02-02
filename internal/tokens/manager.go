@@ -20,9 +20,9 @@ type TokenAuthProvider interface {
 
 // TokenResult contains the result of a token operation.
 type TokenResult struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresIn    int
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 // Manager handles token lifecycle including refresh and access.
@@ -165,7 +165,7 @@ func (m *Manager) fixPasswordGrantToken(tokenRecord *core.Record, clientRecord *
 	tokenRecord.Set("status", "valid")
 	tokenRecord.Set("accessToken", newToken.AccessToken)
 	tokenRecord.Set("refreshToken", newToken.RefreshToken)
-	tokenRecord.Set("expires", calculateTokenExpiry(newToken.ExpiresIn))
+	tokenRecord.Set("expires", CalculateTokenExpiry(newToken.ExpiresIn))
 
 	if err := m.app.Save(tokenRecord); err != nil {
 		return err
@@ -255,7 +255,7 @@ func (m *Manager) doRefreshToken(tokenRecord *core.Record) error {
 	tokenRecord.Set("status", "valid")
 	tokenRecord.Set("accessToken", newToken.AccessToken)
 	tokenRecord.Set("refreshToken", newToken.RefreshToken)
-	tokenRecord.Set("expires", calculateTokenExpiry(newToken.ExpiresIn))
+	tokenRecord.Set("expires", CalculateTokenExpiry(newToken.ExpiresIn))
 
 	if err := m.app.Save(tokenRecord); err != nil {
 		return err
@@ -361,6 +361,7 @@ func GetRatelimitCutoff() (time.Time, error) {
 	return cutoff.UTC(), nil
 }
 
-func calculateTokenExpiry(expiresIn int) time.Time {
+// CalculateTokenExpiry calculates the expiry time from expires_in seconds.
+func CalculateTokenExpiry(expiresIn int) time.Time {
 	return time.Now().Add(time.Duration(expiresIn) * time.Second)
 }

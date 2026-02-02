@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
+
+	"github.com/s1adem4n/tado-api-proxy/internal/tokens"
 )
 
 const (
@@ -19,28 +20,40 @@ const (
 	TenantID      = "1d543ad5-a8ac-4704-b9e2-26838b4d6513"
 )
 
-type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
-	TokenType    string `json:"token_type"`
-	Scope        string `json:"scope"`
-	UserID       string `json:"userId"`
+// DeviceAuthResponse is the device authorization response.
+type DeviceAuthResponse struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
 }
 
-func (c *Client) authorize(
+// Auth handles OAuth authentication with tado's API.
+// It implements tokens.TokenAuthProvider.
+// It is stateless and can be safely shared across goroutines.
+type Auth struct{}
+
+// NewAuth creates a new Auth instance.
+func NewAuth() *Auth {
+	return &Auth{}
+}
+
+// Authorize performs the OAuth password grant flow.
+// Implements tokens.TokenAuthProvider.
+func (a *Auth) Authorize(
 	ctx context.Context,
 	clientID, redirectURI, scope,
-	email, password string,
-	platform string,
-) (*TokenResponse, error) {
-	verifier, err := GenerateCodeVerifier()
+	email, password, platform string,
+) (*tokens.TokenResult, error) {
+	verifier, err := generateCodeVerifier()
 	if err != nil {
 		return nil, err
 	}
-	challenge := GenerateCodeChallenge(verifier)
+	challenge := generateCodeChallenge(verifier)
 
-	state, err := GenerateState()
+	state, err := generateState()
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +91,6 @@ func (c *Client) authorize(
 	}
 
 	// Step 2: POST the login form
-	// Build form data in exact order matching real traffic
 	formData := url.Values{}
 	formData.Set("captcha_token", "")
 	formData.Set("client_id", clientID)
@@ -154,10 +166,9 @@ func (c *Client) authorize(
 		return nil, fmt.Errorf("no code in redirect URI")
 	}
 
-	// Step 4: Exchange code for token using the token client
+	// Step 4: Exchange code for token
 	tokenClient := NewTokenClient(platform)
 
-	// Build token form data matching real traffic order
 	tokenData := url.Values{}
 	tokenData.Set("code", code)
 	tokenData.Set("code_verifier", verifier)
@@ -166,7 +177,7 @@ func (c *Client) authorize(
 	tokenData.Set("grant_type", "authorization_code")
 	tokenData.Set("client_id", clientID)
 
-	var tokenResp TokenResponse
+	var tokenResp tokens.TokenResult
 	resp, err = tokenClient.R().
 		SetContext(ctx).
 		SetHeader("content-type", "application/x-www-form-urlencoded").
@@ -184,16 +195,36 @@ func (c *Client) authorize(
 	return &tokenResp, nil
 }
 
-type DeviceAuthResponse struct {
-	DeviceCode              string `json:"device_code"`
-	UserCode                string `json:"user_code"`
-	VerificationURI         string `json:"verification_uri"`
-	VerificationURIComplete string `json:"verification_uri_complete"`
-	ExpiresIn               int    `json:"expires_in"`
-	Interval                int    `json:"interval"`
+// RefreshToken refreshes an OAuth token.
+// Implements tokens.TokenAuthProvider.
+func (a *Auth) RefreshToken(ctx context.Context, clientID, refreshToken, platform string) (*tokens.TokenResult, error) {
+	tokenClient := NewTokenClient(platform)
+
+	data := url.Values{}
+	data.Set("client_id", clientID)
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+
+	var tokenResp tokens.TokenResult
+	resp, err := tokenClient.R().
+		SetContext(ctx).
+		SetHeader("content-type", "application/x-www-form-urlencoded").
+		SetBodyString(data.Encode()).
+		SetSuccessResult(&tokenResp).
+		Post(TokenURL)
+	if err != nil {
+		return nil, fmt.Errorf("refresh token failed: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: resp.String()}
+	}
+
+	return &tokenResp, nil
 }
 
-func (c *Client) DeviceAuthorize(ctx context.Context, clientID, scope string) (*DeviceAuthResponse, error) {
+// DeviceAuthorize initiates device code authorization flow.
+func (a *Auth) DeviceAuthorize(ctx context.Context, clientID, scope string) (*DeviceAuthResponse, error) {
 	tokenClient := NewIOSSafariTokenClient()
 
 	authURL, err := url.Parse(DeviceAuthURL)
@@ -222,7 +253,8 @@ func (c *Client) DeviceAuthorize(ctx context.Context, clientID, scope string) (*
 	return &deviceResp, nil
 }
 
-func (c *Client) ExchangeDeviceCode(ctx context.Context, clientID, deviceCode string) (*TokenResponse, error) {
+// ExchangeDeviceCode exchanges a device code for tokens.
+func (a *Auth) ExchangeDeviceCode(ctx context.Context, clientID, deviceCode string) (*tokens.TokenResult, error) {
 	tokenClient := NewIOSSafariTokenClient()
 
 	data := url.Values{}
@@ -230,7 +262,7 @@ func (c *Client) ExchangeDeviceCode(ctx context.Context, clientID, deviceCode st
 	data.Set("device_code", deviceCode)
 	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
 
-	var tokenResp TokenResponse
+	var tokenResp tokens.TokenResult
 	resp, err := tokenClient.R().
 		SetContext(ctx).
 		SetHeader("content-type", "application/x-www-form-urlencoded").
@@ -248,37 +280,9 @@ func (c *Client) ExchangeDeviceCode(ctx context.Context, clientID, deviceCode st
 	return &tokenResp, nil
 }
 
-func (c *Client) refreshToken(ctx context.Context, clientID, refreshToken, platform string) (*TokenResponse, error) {
-	tokenClient := NewTokenClient(platform)
+// Helper functions
 
-	data := url.Values{}
-	data.Set("client_id", clientID)
-	data.Set("grant_type", "refresh_token")
-	data.Set("refresh_token", refreshToken)
-
-	var tokenResp TokenResponse
-	resp, err := tokenClient.R().
-		SetContext(ctx).
-		SetHeader("content-type", "application/x-www-form-urlencoded").
-		SetBodyString(data.Encode()).
-		SetSuccessResult(&tokenResp).
-		Post(TokenURL)
-	if err != nil {
-		return nil, fmt.Errorf("refresh token failed: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, &APIError{StatusCode: resp.StatusCode, Body: resp.String()}
-	}
-
-	return &tokenResp, nil
-}
-
-func CalculateTokenExpiry(expiresIn int) time.Time {
-	return time.Now().Add(time.Duration(expiresIn) * time.Second)
-}
-
-func GenerateCodeVerifier() (string, error) {
+func generateCodeVerifier() (string, error) {
 	bytes := make([]byte, 96)
 	_, err := rand.Read(bytes)
 	if err != nil {
@@ -287,12 +291,12 @@ func GenerateCodeVerifier() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
 
-func GenerateCodeChallenge(verifier string) string {
+func generateCodeChallenge(verifier string) string {
 	hash := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
-func GenerateState() (string, error) {
+func generateState() (string, error) {
 	bytes := make([]byte, 32)
 	_, err := rand.Read(bytes)
 	if err != nil {

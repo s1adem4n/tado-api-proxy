@@ -7,20 +7,23 @@ import (
 	"github.com/s1adem4n/tado-api-proxy/internal/tokens"
 )
 
+// Client handles tado-specific business logic like account creation and device codes.
 type Client struct {
 	app          core.App
+	auth         *Auth
 	tokenManager *tokens.Manager
 }
 
-func NewClient(app core.App) *Client {
-	c := &Client{
-		app: app,
+// NewClient creates a new Client.
+func NewClient(app core.App, auth *Auth, tokenManager *tokens.Manager) *Client {
+	return &Client{
+		app:          app,
+		auth:         auth,
+		tokenManager: tokenManager,
 	}
-	// Create token manager with this client as the auth provider
-	c.tokenManager = tokens.NewManager(app, c)
-	return c
 }
 
+// Register sets up event hooks for the client.
 func (c *Client) Register() {
 	c.app.OnRecordCreate("accounts").BindFunc(func(e *core.RecordEvent) error {
 		err := e.Next()
@@ -46,9 +49,6 @@ func (c *Client) Register() {
 		return e.Next()
 	})
 
-	// Start the token manager's background refresh worker
-	c.tokenManager.Start()
-
 	c.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		err := c.DeleteUnusedCodes()
 		if err != nil {
@@ -59,6 +59,7 @@ func (c *Client) Register() {
 	})
 }
 
+// LoadAccountData creates tokens for all password grant clients and fetches account homes.
 func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) error {
 	tokensCollection, err := c.app.FindCollectionByNameOrId("tokens")
 	if err != nil {
@@ -84,13 +85,13 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 
 	for _, client := range clients {
 		clientName := client.GetString("name")
-		token, err := c.authorize(ctx,
+		token, err := c.auth.Authorize(ctx,
 			client.GetString("clientID"),
 			client.GetString("redirectURI"),
 			client.GetString("scope"),
 			account.GetString("email"),
 			account.GetString("password"),
-			clientName,
+			client.GetString("platform"),
 		)
 		if err != nil {
 			return err
@@ -106,7 +107,7 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 		tokenRecord.Set("accessToken", token.AccessToken)
 		tokenRecord.Set("refreshToken", token.RefreshToken)
 
-		expiry := CalculateTokenExpiry(token.ExpiresIn)
+		expiry := tokens.CalculateTokenExpiry(token.ExpiresIn)
 		tokenRecord.Set("expires", expiry)
 
 		if err := c.app.Save(tokenRecord); err != nil {

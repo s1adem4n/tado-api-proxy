@@ -15,6 +15,7 @@ import (
 
 	"github.com/s1adem4n/tado-api-proxy/internal/proxy"
 	"github.com/s1adem4n/tado-api-proxy/internal/tado"
+	"github.com/s1adem4n/tado-api-proxy/internal/tokens"
 	_ "github.com/s1adem4n/tado-api-proxy/migrations"
 	"github.com/s1adem4n/tado-api-proxy/web"
 )
@@ -26,10 +27,14 @@ func main() {
 		Automigrate: app.IsDev(),
 	})
 
-	tadoClient := tado.NewClient(app)
+	tadoAuth := tado.NewAuth()
+	tokenManager := tokens.NewManager(app, tadoAuth)
+	tokenManager.Start()
+
+	tadoClient := tado.NewClient(app, tadoAuth, tokenManager)
 	tadoClient.Register()
 
-	proxyHandler := proxy.NewHandler(app, tadoClient.TokenManager())
+	proxyHandler := proxy.NewHandler(app, tokenManager)
 	proxyHandler.Register()
 
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
