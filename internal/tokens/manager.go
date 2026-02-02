@@ -3,6 +3,7 @@ package tokens
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -93,6 +94,8 @@ func (m *Manager) refreshWorker() {
 }
 
 // refreshEnabledTokens refreshes all enabled tokens that need refreshing.
+// Applies random jitter between token refreshes to avoid burst patterns
+// that could be detected as automated usage.
 func (m *Manager) refreshEnabledTokens() error {
 	// Only refresh tokens that are enabled (disabled = false)
 	tokens, err := m.app.FindRecordsByFilter(
@@ -105,7 +108,23 @@ func (m *Manager) refreshEnabledTokens() error {
 		return err
 	}
 
-	for _, tokenRecord := range tokens {
+	// Shuffle tokens to randomize refresh order each cycle
+	rand.Shuffle(len(tokens), func(i, j int) {
+		tokens[i], tokens[j] = tokens[j], tokens[i]
+	})
+
+	for i, tokenRecord := range tokens {
+		// Add jitter between token operations (except before first one)
+		// Random delay between 500ms and 3s to make traffic look more organic
+		if i > 0 {
+			jitter := time.Duration(500+rand.Intn(2500)) * time.Millisecond
+			select {
+			case <-time.After(jitter):
+			case <-m.ctx.Done():
+				return nil
+			}
+		}
+
 		// Try to fix invalid tokens first
 		if tokenRecord.GetString("status") != "valid" {
 			if err := m.tryFixToken(tokenRecord); err != nil {
@@ -198,13 +217,12 @@ func (m *Manager) fixDeviceCodeToken(tokenRecord *core.Record) error {
 	return nil
 }
 
-// refreshTokenIfNeeded refreshes a token if it's close to expiry.
+// refreshTokenIfNeeded refreshes a token if it's expired or invalid.
 func (m *Manager) refreshTokenIfNeeded(tokenRecord *core.Record) error {
 	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-1 * time.Minute)
 
-	// Only skip refresh if not expired AND valid
-	if time.Now().Before(bufferedExpiry.Time()) && tokenRecord.GetString("status") == "valid" {
+	// Only refresh if actually expired or invalid
+	if time.Now().Before(expires.Time()) && tokenRecord.GetString("status") == "valid" {
 		return nil
 	}
 
@@ -224,7 +242,7 @@ func (m *Manager) doRefreshToken(tokenRecord *core.Record) error {
 	}
 
 	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-1 * time.Minute)
+	bufferedExpiry := expires.Add(-30 * time.Second)
 	if time.Now().Before(bufferedExpiry.Time()) && tokenRecord.GetString("status") == "valid" {
 		return nil
 	}
@@ -269,29 +287,31 @@ func (m *Manager) doRefreshToken(tokenRecord *core.Record) error {
 // This is the main method the proxy should use to get a token.
 // It ensures the token is fresh and valid before returning.
 func (m *Manager) GetValidToken(tokenRecord *core.Record) (*core.Record, error) {
-	// Check if token needs refresh
+	// Check if token needs refresh - use 30s buffer to account for request time
 	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-1 * time.Minute)
+	bufferedExpiry := expires.Add(-30 * time.Second)
 	needsRefresh := time.Now().After(bufferedExpiry.Time()) || tokenRecord.GetString("status") != "valid"
 
 	if needsRefresh {
 		if err := m.doRefreshToken(tokenRecord); err != nil {
-			clientRecord, err := m.app.FindRecordById("clients", tokenRecord.GetString("client"))
-			if err != nil {
-				return nil, err
-			}
-
-			if clientRecord.GetString("type") == "passwordGrant" {
-				if err := m.fixPasswordGrantToken(tokenRecord, clientRecord); err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 
 		// Re-fetch the token record to get updated values
 		var err error
+		tokenRecord, err = m.app.FindRecordById("tokens", tokenRecord.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if tokenRecord.GetString("status") != "valid" {
+		err := m.tryFixToken(tokenRecord)
+		if err != nil {
+			return nil, err
+		}
+
+		// Re-fetch the token record to get updated values
 		tokenRecord, err = m.app.FindRecordById("tokens", tokenRecord.Id)
 		if err != nil {
 			return nil, err
