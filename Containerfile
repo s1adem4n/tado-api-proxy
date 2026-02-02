@@ -1,7 +1,8 @@
 FROM docker.io/alpine:latest
 
 RUN apk add --no-cache tzdata && \
-    addgroup -g 1000 -S appuser && adduser -u 1000 -S -G appuser appuser
+    addgroup -g 1000 -S appuser && adduser -u 1000 -S -G appuser appuser && \
+    mkdir /config && chown appuser:appuser /config
 USER appuser
 
 ARG TARGETARCH
