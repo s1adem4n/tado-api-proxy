@@ -28,7 +28,7 @@ type TokenResponse struct {
 	UserID       string `json:"userId"`
 }
 
-func (c *Client) Authorize(
+func (c *Client) authorize(
 	ctx context.Context,
 	clientID, redirectURI, scope,
 	email, password string,
@@ -248,7 +248,7 @@ func (c *Client) ExchangeDeviceCode(ctx context.Context, clientID, deviceCode st
 	return &tokenResp, nil
 }
 
-func (c *Client) RefreshToken(ctx context.Context, clientID, refreshToken, platform string) (*TokenResponse, error) {
+func (c *Client) refreshToken(ctx context.Context, clientID, refreshToken, platform string) (*TokenResponse, error) {
 	tokenClient := NewTokenClient(platform)
 
 	data := url.Values{}
@@ -299,22 +299,6 @@ func GenerateState() (string, error) {
 		return "", fmt.Errorf("failed to generate random state: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(bytes), nil
-}
-
-func GetRatelimitCutoff() (time.Time, error) {
-	loc, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	now := time.Now().In(loc)
-	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
-
-	if now.Before(cutoff) {
-		cutoff = cutoff.Add(-24 * time.Hour)
-	}
-
-	return cutoff.UTC(), nil
 }
 
 func absURL(loc string) string {

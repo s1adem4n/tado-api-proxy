@@ -29,7 +29,7 @@ func main() {
 	tadoClient := tado.NewClient(app)
 	tadoClient.Register()
 
-	proxyHandler := proxy.NewHandler(app)
+	proxyHandler := proxy.NewHandler(app, tadoClient.TokenManager())
 	proxyHandler.Register()
 
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {

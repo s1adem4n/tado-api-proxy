@@ -17,15 +17,18 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/s1adem4n/tado-api-proxy/internal/tado"
+	"github.com/s1adem4n/tado-api-proxy/internal/tokens"
 )
 
 type Handler struct {
-	app core.App
+	app          core.App
+	tokenManager *tokens.Manager
 }
 
-func NewHandler(app core.App) *Handler {
+func NewHandler(app core.App, tokenManager *tokens.Manager) *Handler {
 	return &Handler{
-		app: app,
+		app:          app,
+		tokenManager: tokenManager,
 	}
 }
 
@@ -137,15 +140,15 @@ func (h *Handler) HandleAuthenticatedProxyRequest(e *core.RequestEvent) error {
 }
 
 func (h *Handler) performProxyRequest(e *core.RequestEvent, upstreamPath string) error {
-	tokens, err := h.findTokens(e, upstreamPath)
+	tokenRecords, err := h.findTokens(e, upstreamPath)
 	if err != nil {
 		return err
 	}
-	if len(tokens) == 0 {
+	if len(tokenRecords) == 0 {
 		return e.BadRequestError("no valid tokens found", nil)
 	}
 
-	selection, err := h.categorizeTokens(tokens)
+	selection, err := h.categorizeTokens(tokenRecords)
 	if err != nil {
 		return err
 	}
@@ -160,6 +163,14 @@ func (h *Handler) performProxyRequest(e *core.RequestEvent, upstreamPath string)
 
 	validTokens := append(selection.preferred, selection.other...)
 	for _, t := range validTokens {
+		// Ensure the token is valid (refresh if needed) before using it
+		validToken, err := h.tokenManager.GetValidToken(t.token)
+		if err != nil {
+			h.app.Logger().Debug("failed to get valid token", "id", t.token.Id, "error", err)
+			continue
+		}
+		t.token = validToken
+
 		result, err := h.tryProxyRequest(e, t, targetURL, bodyBytes)
 		if err != nil {
 			continue
@@ -179,9 +190,13 @@ func (h *Handler) performProxyRequest(e *core.RequestEvent, upstreamPath string)
 	return e.UnauthorizedError("no valid tokens found", nil)
 }
 
-// findTokens retrieves valid tokens based on request headers and path.
+// findTokens retrieves tokens based on request headers and path.
+// Note: We now include tokens that might need refresh (not just valid ones),
+// since the token manager will refresh them when we request a valid token.
 func (h *Handler) findTokens(e *core.RequestEvent, upstreamPath string) ([]*core.Record, error) {
-	filter := "status = 'valid' && disabled = false"
+	// Include tokens that are valid OR invalid (they might be refreshable)
+	// But exclude disabled tokens
+	filter := "disabled = false"
 
 	accountEmail := e.Request.Header.Get("X-Tado-Email")
 	if accountEmail != "" {
@@ -205,15 +220,15 @@ func (h *Handler) findTokens(e *core.RequestEvent, upstreamPath string) ([]*core
 
 // categorizeTokens separates tokens into preferred (deviceCode) and other types,
 // filtering out those that have exceeded their rate limit.
-func (h *Handler) categorizeTokens(tokens []*core.Record) (*tokenSelection, error) {
-	cutoff, err := tado.GetRatelimitCutoff()
+func (h *Handler) categorizeTokens(tokenRecords []*core.Record) (*tokenSelection, error) {
+	cutoff, err := tokens.GetRatelimitCutoff()
 	if err != nil {
 		return nil, err
 	}
 
 	selection := &tokenSelection{}
 
-	for _, token := range tokens {
+	for _, token := range tokenRecords {
 		client, err := h.app.FindRecordById("clients", token.GetString("client"))
 		if err != nil {
 			return nil, err
@@ -301,11 +316,17 @@ func (h *Handler) tryProxyRequest(e *core.RequestEvent, t tokenWithClient, targe
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		h.markTokenInvalid(t.token)
+		// Use token manager to mark as invalid (thread-safe)
+		if err := h.tokenManager.MarkTokenInvalid(t.token.Id); err != nil {
+			h.app.Logger().Error("failed to mark token invalid", "error", err)
+		}
 		return nil, nil
 	}
 
-	h.updateTokenUsed(t.token)
+	// Update token usage
+	if err := h.tokenManager.UpdateTokenUsed(t.token.Id); err != nil {
+		h.app.Logger().Error("failed to update token used time", "error", err)
+	}
 
 	return &proxyResult{response: resp, token: t}, nil
 }
@@ -316,23 +337,6 @@ func (h *Handler) createAPIClient(client *core.Record) *req.Client {
 		return tado.NewIOSSafariAPIClient()
 	}
 	return tado.NewFirefoxAPIClient()
-}
-
-// markTokenInvalid marks a token as invalid and saves it.
-func (h *Handler) markTokenInvalid(token *core.Record) {
-	token.Set("used", time.Now())
-	token.Set("status", "invalid")
-	if err := h.app.Save(token); err != nil {
-		h.app.Logger().Error("failed to mark token invalid", "error", err)
-	}
-}
-
-// updateTokenUsed updates the token's last used timestamp.
-func (h *Handler) updateTokenUsed(token *core.Record) {
-	token.Set("used", time.Now())
-	if err := h.app.Save(token); err != nil {
-		h.app.Logger().Error("failed to update token used time", "error", err)
-	}
 }
 
 // updateClientRateLimit updates the client's rate limit if the response header indicates a change.
@@ -406,7 +410,7 @@ func (h *Handler) logRequest(tokenID, method, url string, status int) {
 }
 
 func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
-	tokens, err := h.app.FindRecordsByFilter(
+	tokenRecords, err := h.app.FindRecordsByFilter(
 		"tokens",
 		"", "used", 0, 0,
 		nil,
@@ -414,18 +418,18 @@ func (h *Handler) HandleRatelimitsRequest(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
-	if len(tokens) == 0 {
+	if len(tokenRecords) == 0 {
 		return e.JSON(200, nil)
 	}
 
-	cutoff, err := tado.GetRatelimitCutoff()
+	cutoff, err := tokens.GetRatelimitCutoff()
 	if err != nil {
 		return err
 	}
 
 	usage := map[string]any{}
 
-	for _, token := range tokens {
+	for _, token := range tokenRecords {
 		client, err := h.app.FindRecordById("clients", token.GetString("client"))
 		if err != nil {
 			return err
