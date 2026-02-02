@@ -67,7 +67,7 @@ SUPERUSER_EMAIL=admin@example.com SUPERUSER_PASSWORD=changeme \
 ### 3. Authorize the Official API (Highly Recommended)
 
 > [!IMPORTANT]
-> **This step significantly reduces your risk of being banned.** The official API client has a separate rate limit, which is approved by tado. The proxy prioritizes routing requests through the official API when available to reduce the risk of getting banned.
+> **This step significantly reduces your risk of being banned.** The official API client has a separate rate limit, which is approved by tado. The proxy prioritizes routing requests through the official API when available to reduce the risk of getting banned. Only one authorization per home is needed, as the limit is shared per home!
 
 1. In the web UI, click **Start Authorization** in the "Authorize Official API" section
 2. Complete the authorization flow in your browser
@@ -153,7 +153,7 @@ curl http://localhost:8080/a1b2c3d4/api/v2/me
 
 #### Using tado_hijack
 
-[tado_hijack](https://github.com/banter240/tado_hijack) is working on using the proxy natively by changing an option (see dev branch). It also implements some obfuscation to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
+[tado_hijack](https://github.com/banter240/tado_hijack) supports using the proxy natively by changing an option (see dev branch). It also implements some obfuscations to reduce the possibility of getting banned by tado. Please refer to the documentation for more details!
 
 #### Using the official integration
 
