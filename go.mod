@@ -1,6 +1,6 @@
 module github.com/s1adem4n/tado-api-proxy
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/imroc/req/v3 v3.57.0
