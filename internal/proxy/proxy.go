@@ -40,9 +40,17 @@ func (h *Handler) Register() {
 		}
 
 		e.Router.Any("/api/v2/{path...}", h.HandleLegacyProxyRequest)
+		e.Router.Any("/api/hops/{path...}", h.HandleLegacyProxyRequest)
 		e.Router.Any(
 			fmt.Sprintf(
 				"/%s/api/v2/{path...}",
+				settingsRecord.GetString("proxyToken"),
+			),
+			h.HandleAuthenticatedProxyRequest,
+		)
+		e.Router.Any(
+			fmt.Sprintf(
+				"/%s/api/hops/{path...}",
 				settingsRecord.GetString("proxyToken"),
 			),
 			h.HandleAuthenticatedProxyRequest,
@@ -271,10 +279,20 @@ func (h *Handler) getTokenUsageCount(tokenID string, cutoff time.Time) (int, err
 
 // buildTargetURL constructs the target URL for the Tado API.
 func (h *Handler) buildTargetURL(requestURL *url.URL, upstreamPath string) url.URL {
+	host := "my.tado.com"
+	targetPath := upstreamPath
+	if strings.HasPrefix(upstreamPath, "/api/hops") {
+		host = "hops.tado.com"
+		targetPath = strings.TrimPrefix(upstreamPath, "/api/hops")
+		if targetPath == "" {
+			targetPath = "/"
+		}
+	}
+
 	targetURL := url.URL{
 		Scheme:   "https",
-		Host:     "my.tado.com",
-		Path:     upstreamPath,
+		Host:     host,
+		Path:     targetPath,
 		RawQuery: requestURL.RawQuery,
 	}
 
@@ -488,7 +506,7 @@ func (h *Handler) CleanRequestLogs() error {
 }
 
 func extractHomeID(path string) string {
-	re := regexp.MustCompile(`^/api/v2/homes/(\d+)`)
+	re := regexp.MustCompile(`^/api/(?:v2|hops)/homes/(\d+)`)
 	matches := re.FindStringSubmatch(path)
 	if len(matches) == 2 {
 		return matches[1]
