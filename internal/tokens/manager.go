@@ -3,7 +3,6 @@ package tokens
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -34,32 +33,15 @@ type Manager struct {
 	// Per-token mutex to prevent concurrent refresh operations
 	tokenMutexes   map[string]*sync.Mutex
 	tokenMutexesMu sync.Mutex
-
-	// Context for the background refresh loop
-	ctx    context.Context
-	cancel context.CancelFunc
 }
 
 // NewManager creates a new token manager.
 func NewManager(app core.App, authProvider TokenAuthProvider) *Manager {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{
 		app:          app,
 		authProvider: authProvider,
 		tokenMutexes: make(map[string]*sync.Mutex),
-		ctx:          ctx,
-		cancel:       cancel,
 	}
-}
-
-// Start begins the background token refresh worker.
-func (m *Manager) Start() {
-	go m.refreshWorker()
-}
-
-// Stop stops the background token refresh worker.
-func (m *Manager) Stop() {
-	m.cancel()
 }
 
 // getTokenMutex returns the mutex for a specific token, creating one if needed.
@@ -76,80 +58,15 @@ func (m *Manager) getTokenMutex(tokenID string) *sync.Mutex {
 	return mu
 }
 
-// refreshWorker runs in the background and refreshes enabled tokens.
-func (m *Manager) refreshWorker() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := m.refreshEnabledTokens(); err != nil {
-				m.app.Logger().Error("failed to refresh tokens", "error", err)
-			}
-		case <-m.ctx.Done():
-			return
-		}
-	}
-}
-
-// refreshEnabledTokens refreshes all enabled tokens that need refreshing.
-// Applies random jitter between token refreshes to avoid burst patterns
-// that could be detected as automated usage.
-func (m *Manager) refreshEnabledTokens() error {
-	// Only refresh tokens that are enabled (disabled = false)
-	tokens, err := m.app.FindRecordsByFilter(
-		"tokens",
-		"disabled = false",
-		"", 0, 0,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Shuffle tokens to randomize refresh order each cycle
-	rand.Shuffle(len(tokens), func(i, j int) {
-		tokens[i], tokens[j] = tokens[j], tokens[i]
-	})
-
-	for i, tokenRecord := range tokens {
-		// Add jitter between token operations (except before first one)
-		// Random delay between 500ms and 3s to make traffic look more organic
-		if i > 0 {
-			jitter := time.Duration(500+rand.Intn(2500)) * time.Millisecond
-			select {
-			case <-time.After(jitter):
-			case <-m.ctx.Done():
-				return nil
-			}
-		}
-
-		// Try to fix invalid tokens first
-		if tokenRecord.GetString("status") != "valid" {
-			if err := m.tryFixToken(tokenRecord); err != nil {
-				m.app.Logger().Error("failed to fix token", "id", tokenRecord.Id, "error", err)
-			}
-		}
-
-		// Refresh the token if needed
-		if err := m.refreshTokenIfNeeded(tokenRecord); err != nil {
-			m.app.Logger().Error("failed to refresh token", "id", tokenRecord.Id, "error", err)
-		}
-	}
-
-	return nil
-}
-
 // tryFixToken attempts to fix an invalid token.
-func (m *Manager) tryFixToken(tokenRecord *core.Record) error {
+func (m *Manager) tryFixToken(ctx context.Context, tokenRecord *core.Record) error {
 	client, err := m.app.FindRecordById("clients", tokenRecord.GetString("client"))
 	if err != nil {
 		return err
 	}
 
 	if client.GetString("type") == "passwordGrant" {
-		return m.fixPasswordGrantToken(tokenRecord, client)
+		return m.fixPasswordGrantToken(ctx, tokenRecord, client)
 	} else if client.GetString("type") == "deviceCode" {
 		return m.fixDeviceCodeToken(tokenRecord)
 	}
@@ -158,7 +75,7 @@ func (m *Manager) tryFixToken(tokenRecord *core.Record) error {
 }
 
 // fixPasswordGrantToken re-authenticates using password grant.
-func (m *Manager) fixPasswordGrantToken(tokenRecord *core.Record, clientRecord *core.Record) error {
+func (m *Manager) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.Record, clientRecord *core.Record) error {
 	mu := m.getTokenMutex(tokenRecord.Id)
 	mu.Lock()
 	defer mu.Unlock()
@@ -169,7 +86,7 @@ func (m *Manager) fixPasswordGrantToken(tokenRecord *core.Record, clientRecord *
 	}
 
 	newToken, err := m.authProvider.Authorize(
-		m.ctx,
+		ctx,
 		clientRecord.GetString("clientID"),
 		clientRecord.GetString("redirectURI"),
 		clientRecord.GetString("scope"),
@@ -217,20 +134,8 @@ func (m *Manager) fixDeviceCodeToken(tokenRecord *core.Record) error {
 	return nil
 }
 
-// refreshTokenIfNeeded refreshes a token if it's expired or invalid.
-func (m *Manager) refreshTokenIfNeeded(tokenRecord *core.Record) error {
-	expires := tokenRecord.GetDateTime("expires")
-
-	// Only refresh if actually expired or invalid
-	if time.Now().Before(expires.Time()) && tokenRecord.GetString("status") == "valid" {
-		return nil
-	}
-
-	return m.doRefreshToken(tokenRecord)
-}
-
 // doRefreshToken performs the actual token refresh with proper locking.
-func (m *Manager) doRefreshToken(tokenRecord *core.Record) error {
+func (m *Manager) doRefreshToken(ctx context.Context, tokenRecord *core.Record) error {
 	mu := m.getTokenMutex(tokenRecord.Id)
 	mu.Lock()
 	defer mu.Unlock()
@@ -253,7 +158,7 @@ func (m *Manager) doRefreshToken(tokenRecord *core.Record) error {
 	}
 
 	newToken, err := m.authProvider.RefreshToken(
-		m.ctx,
+		ctx,
 		clientRecord.GetString("clientID"),
 		tokenRecord.GetString("refreshToken"),
 		clientRecord.GetString("name"),
@@ -286,14 +191,14 @@ func (m *Manager) doRefreshToken(tokenRecord *core.Record) error {
 // GetValidToken retrieves a valid token, refreshing it first if necessary.
 // This is the main method the proxy should use to get a token.
 // It ensures the token is fresh and valid before returning.
-func (m *Manager) GetValidToken(tokenRecord *core.Record) (*core.Record, error) {
+func (m *Manager) GetValidToken(ctx context.Context, tokenRecord *core.Record) (*core.Record, error) {
 	// Check if token needs refresh - use 30s buffer to account for request time
 	expires := tokenRecord.GetDateTime("expires")
 	bufferedExpiry := expires.Add(-30 * time.Second)
 	needsRefresh := time.Now().After(bufferedExpiry.Time()) || tokenRecord.GetString("status") != "valid"
 
 	if needsRefresh {
-		if err := m.doRefreshToken(tokenRecord); err != nil {
+		if err := m.doRefreshToken(ctx, tokenRecord); err != nil {
 			return nil, err
 		}
 
@@ -306,7 +211,7 @@ func (m *Manager) GetValidToken(tokenRecord *core.Record) (*core.Record, error) 
 	}
 
 	if tokenRecord.GetString("status") != "valid" {
-		err := m.tryFixToken(tokenRecord)
+		err := m.tryFixToken(ctx, tokenRecord)
 		if err != nil {
 			return nil, err
 		}
@@ -319,22 +224,6 @@ func (m *Manager) GetValidToken(tokenRecord *core.Record) (*core.Record, error) 
 	}
 
 	return tokenRecord, nil
-}
-
-// EnsureTokenValid ensures a token is valid, refreshing if needed.
-// Returns true if the token is valid (or was successfully refreshed).
-func (m *Manager) EnsureTokenValid(tokenID string) (bool, error) {
-	tokenRecord, err := m.app.FindRecordById("tokens", tokenID)
-	if err != nil {
-		return false, err
-	}
-
-	_, err = m.GetValidToken(tokenRecord)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
 }
 
 // MarkTokenInvalid marks a token as invalid (e.g., after a 401 response).

@@ -172,7 +172,7 @@ func (h *Handler) performProxyRequest(e *core.RequestEvent, upstreamPath string)
 	validTokens := append(selection.preferred, selection.other...)
 	for _, t := range validTokens {
 		// Ensure the token is valid (refresh if needed) before using it
-		validToken, err := h.tokenManager.GetValidToken(t.token)
+		validToken, err := h.tokenManager.GetValidToken(e.Request.Context(), t.token)
 		if err != nil {
 			h.app.Logger().Debug("failed to get valid token", "id", t.token.Id, "error", err)
 			continue

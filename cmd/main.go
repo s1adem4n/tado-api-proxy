@@ -29,7 +29,6 @@ func main() {
 
 	tadoAuth := tado.NewAuth()
 	tokenManager := tokens.NewManager(app, tadoAuth)
-	tokenManager.Start()
 
 	tadoClient := tado.NewClient(app, tadoAuth, tokenManager)
 	tadoClient.Register()
