@@ -65,7 +65,9 @@ func (m *Manager) tryFixToken(ctx context.Context, tokenRecord *core.Record) err
 		return err
 	}
 
+	fmt.Println("tryFixToken")
 	if client.GetString("type") == "passwordGrant" {
+		fmt.Println("password grant")
 		return m.fixPasswordGrantToken(ctx, tokenRecord, client)
 	} else if client.GetString("type") == "deviceCode" {
 		return m.fixDeviceCodeToken(tokenRecord)
@@ -198,9 +200,7 @@ func (m *Manager) GetValidToken(ctx context.Context, tokenRecord *core.Record) (
 	needsRefresh := time.Now().After(bufferedExpiry.Time()) || tokenRecord.GetString("status") != "valid"
 
 	if needsRefresh {
-		if err := m.doRefreshToken(ctx, tokenRecord); err != nil {
-			return nil, err
-		}
+		m.doRefreshToken(ctx, tokenRecord)
 
 		// Re-fetch the token record to get updated values
 		var err error
