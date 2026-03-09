@@ -242,15 +242,15 @@ func GetWebAppRelease() string {
 	resp, err := client.R().Get("https://app.tado.com/")
 	if err != nil {
 		slog.Error("failed to get web app release", "error", err)
-		return "tado=webapp-release/v3836"
+		return "tado=webapp-3847"
 	}
 
-	// find version:"release/v{number}"
-	re := regexp.MustCompile(`version:"(release/v[0-9]+)"`)
+	// find version:"{number}"
+	re := regexp.MustCompile(`version:"([0-9]+)"`)
 	matches := re.FindStringSubmatch(resp.String())
 	if len(matches) < 2 {
 		slog.Error("failed to find web app release in response")
-		return "tado=webapp-release/v3836"
+		return "tado=webapp-3847"
 	}
 
 	return "tado=webapp-" + matches[1]

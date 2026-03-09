@@ -136,8 +136,8 @@ func (m *Manager) fixDeviceCodeToken(tokenRecord *core.Record) error {
 	return nil
 }
 
-// doRefreshToken performs the actual token refresh with proper locking.
-func (m *Manager) doRefreshToken(ctx context.Context, tokenRecord *core.Record) error {
+// refreshToken performs the actual token refresh with proper locking.
+func (m *Manager) refreshToken(ctx context.Context, tokenRecord *core.Record) error {
 	mu := m.getTokenMutex(tokenRecord.Id)
 	mu.Lock()
 	defer mu.Unlock()
@@ -200,7 +200,7 @@ func (m *Manager) GetValidToken(ctx context.Context, tokenRecord *core.Record) (
 	needsRefresh := time.Now().After(bufferedExpiry.Time()) || tokenRecord.GetString("status") != "valid"
 
 	if needsRefresh {
-		m.doRefreshToken(ctx, tokenRecord)
+		m.refreshToken(ctx, tokenRecord)
 
 		// Re-fetch the token record to get updated values
 		var err error

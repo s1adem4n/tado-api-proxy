@@ -353,6 +353,9 @@ func (h *Handler) tryProxyRequest(e *core.RequestEvent, t tokenWithClient, targe
 func (h *Handler) createAPIClient(client *core.Record) *req.Client {
 	if client.GetString("platform") == "mobile" {
 		return tado.NewIOSSafariAPIClient()
+	} else if client.GetString("type") == "deviceCode" {
+		// for official api use default client
+		return req.C()
 	}
 	return tado.NewFirefoxAPIClient()
 }
