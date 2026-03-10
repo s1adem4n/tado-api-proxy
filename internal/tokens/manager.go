@@ -149,7 +149,7 @@ func (m *Manager) refreshToken(ctx context.Context, tokenRecord *core.Record) er
 	}
 
 	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-30 * time.Second)
+	bufferedExpiry := expires.Add(-60 * time.Second)
 	if time.Now().Before(bufferedExpiry.Time()) && tokenRecord.GetString("status") == "valid" {
 		return nil
 	}
@@ -194,20 +194,13 @@ func (m *Manager) refreshToken(ctx context.Context, tokenRecord *core.Record) er
 // This is the main method the proxy should use to get a token.
 // It ensures the token is fresh and valid before returning.
 func (m *Manager) GetValidToken(ctx context.Context, tokenRecord *core.Record) (*core.Record, error) {
-	// Check if token needs refresh - use 30s buffer to account for request time
-	expires := tokenRecord.GetDateTime("expires")
-	bufferedExpiry := expires.Add(-30 * time.Second)
-	needsRefresh := time.Now().After(bufferedExpiry.Time()) || tokenRecord.GetString("status") != "valid"
+	m.refreshToken(ctx, tokenRecord)
 
-	if needsRefresh {
-		m.refreshToken(ctx, tokenRecord)
-
-		// Re-fetch the token record to get updated values
-		var err error
-		tokenRecord, err = m.app.FindRecordById("tokens", tokenRecord.Id)
-		if err != nil {
-			return nil, err
-		}
+	// Re-fetch the token record to get updated values
+	var err error
+	tokenRecord, err = m.app.FindRecordById("tokens", tokenRecord.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	if tokenRecord.GetString("status") != "valid" {
