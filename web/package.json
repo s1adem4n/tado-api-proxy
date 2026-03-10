@@ -11,22 +11,22 @@
 	},
 	"devDependencies": {
 		"@fontsource-variable/figtree": "^5.2.10",
-		"@iconify-json/lucide": "^1.2.86",
-		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@iconify-json/lucide": "^1.2.90",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.1.18",
 		"@trivago/prettier-plugin-sort-imports": "^6.0.2",
-		"@tsconfig/svelte": "^5.0.6",
-		"@types/node": "^24.10.1",
-		"daisyui": "^5.5.14",
+		"@tsconfig/svelte": "^5.0.7",
+		"@types/node": "^25.2.3",
+		"daisyui": "^5.5.18",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
 		"prettier-plugin-tailwindcss": "^0.7.2",
-		"svelte": "^5.43.8",
-		"svelte-check": "^4.3.4",
+		"svelte": "^5.51.2",
+		"svelte-check": "^4.4.0",
 		"tailwindcss": "^4.1.18",
 		"typescript": "~5.9.3",
 		"unplugin-icons": "^23.0.1",
-		"vite": "^7.2.4"
+		"vite": "^7.3.1"
 	},
 	"prettier": {
 		"useTabs": true,
@@ -49,6 +49,6 @@
 		"tailwindStylesheet": "./src/app.css"
 	},
 	"dependencies": {
-		"pocketbase": "^0.26.6"
+		"pocketbase": "^0.26.8"
 	}
 }
