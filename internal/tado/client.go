@@ -81,10 +81,10 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 	}
 
 	var accessToken string
-	var lastClientName string
+	var lastClientPlatform string
 
 	for _, client := range clients {
-		clientName := client.GetString("name")
+		clientPlatform := client.GetString("platform")
 		token, err := c.auth.Authorize(ctx,
 			client.GetString("clientID"),
 			client.GetString("redirectURI"),
@@ -98,7 +98,7 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 		}
 
 		accessToken = token.AccessToken
-		lastClientName = clientName
+		lastClientPlatform = clientPlatform
 
 		tokenRecord := core.NewRecord(tokensCollection)
 		tokenRecord.Set("account", account.Id)
@@ -115,7 +115,7 @@ func (c *Client) LoadAccountData(ctx context.Context, account *core.Record) erro
 		}
 	}
 
-	me, err := c.GetMe(ctx, accessToken, lastClientName)
+	me, err := c.GetMe(ctx, accessToken, lastClientPlatform)
 	if err != nil {
 		return err
 	}

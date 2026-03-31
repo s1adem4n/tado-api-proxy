@@ -94,7 +94,7 @@ func (m *Manager) fixPasswordGrantToken(ctx context.Context, tokenRecord *core.R
 		clientRecord.GetString("scope"),
 		account.GetString("email"),
 		account.GetString("password"),
-		clientRecord.GetString("name"),
+		clientRecord.GetString("platform"),
 	)
 	if err != nil {
 		return err
@@ -163,7 +163,7 @@ func (m *Manager) refreshToken(ctx context.Context, tokenRecord *core.Record) er
 		ctx,
 		clientRecord.GetString("clientID"),
 		tokenRecord.GetString("refreshToken"),
-		clientRecord.GetString("name"),
+		clientRecord.GetString("platform"),
 	)
 	if err != nil {
 		tokenRecord.Set("status", "invalid")

@@ -80,7 +80,7 @@ func (c *Client) WaitForDeviceAuthorization(
 				continue
 			}
 
-			me, err := c.GetMe(ctx, token.AccessToken, clientRecord.GetString("name"))
+			me, err := c.GetMe(ctx, token.AccessToken, clientRecord.GetString("platform"))
 			if err != nil {
 				return err
 			}
